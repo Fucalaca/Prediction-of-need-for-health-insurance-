@@ -549,15 +549,12 @@ function createModel() {
     const inputShape = preprocessedTrainData.features.shape[1];
     const modelType = document.getElementById('model-type').value;
     
-    console.log('Creating enhanced model with input shape:', inputShape);
-    
-    const modelType = document.getElementById('model-type').value;
-    
     if (modelType === 'super') {
         createSuperModel(); // Используем супер-версию
         return;
     }
-    
+    console.log('Creating enhanced model with input shape:', inputShape);
+
     
     // Clear any existing model
     if (model) {
@@ -1271,7 +1268,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('Health Insurance Prediction App initialized');
-}
+})
+
 async function createSuperModel() {
     if (!preprocessedTrainData) {
         alert('Please preprocess data first.');
@@ -1449,4 +1447,4 @@ async function trainSuperModel() {
         statusDiv.innerHTML = `<p style="color: #e74c3c;">❌ Super model failed: ${error.message}</p>`;
     }
 }
-);
+;

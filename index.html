@@ -359,6 +359,54 @@
             font-weight: bold;
             color: #3498db;
         }
+        /* Улучшенный дизайн для выпадающих списков */
+        .feature-inputs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .feature-input {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .feature-input:hover {
+            border-color: #3498db;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.2);
+        }
+
+        .feature-input label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.95em;
+        }
+
+        .feature-input select,
+        .feature-input input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .feature-input select:focus,
+        .feature-input input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -413,18 +461,19 @@
         </div>
         <div id="Model Configuration" class="card">
             <h2>🧠 Model Configuration</h2>
-        
-                <div class="form-group">
+            
+            <div class="feature-inputs">
+                <div class="feature-input">
                     <label for="model-type">Model Type</label>
-                    <select id="model-type">
+                    <select id="model-type" class="form-control">
                         <option value="simple">Simple Neural Network</option>
                         <option value="deep">Deep Neural Network</option>
                     </select>
                 </div>
                 
-                <div class="form-group">
+                <div class="feature-input">
                     <label for="epochs">Training Epochs</label>
-                    <select id="epochs">
+                    <select id="epochs" class="form-control">
                         <option value="30">30 Epochs</option>
                         <option value="50" selected>50 Epochs</option>
                         <option value="80">80 Epochs</option>
@@ -432,12 +481,13 @@
                     </select>
                 </div>
                 
-                <!-- ДОБАВЛЕНА ЭТА КНОПКА -->
-                <button class="btn" id="create-model-btn" onclick="createModel()" disabled>
-                    <span class="icon">🧠</span> Create Model
-                </button>
-                
-                <div id="model-summary"></div>
+            </div>
+            
+            <button class="btn" id="create-model-btn" onclick="createModel()" disabled>
+                <span class="icon">🧠</span> Create Model
+            </button>
+            
+            <div id="model-summary"></div>
         </div>
 
         <div id="Model Training" class="card">
@@ -479,14 +529,15 @@
             <button class="btn" onclick="exportResults()">Export Predictions</button>
             <div id="export-status"></div>
         </div>
-
-        <!-- Business User Mode Sections -->
-        <div id="Business Insights" class="card" style="display: none;">
-            <h2>📈 Business Insights & Customer Analysis</h2>
-            <div id="business-insights">
-                <p>Load data and train model to see business insights...</p>
+         
+        <div id="Business Prediction" class="card" style="display: none;">
+            <h2>📊 Business Batch Prediction</h2>
+            <div class="form-group">
+                <label for="business-file">Upload Customer Data (CSV):</label>
+                <input type="file" id="business-file" class="form-control" accept=".csv">
             </div>
-            <div id="business-visualizations"></div>
+            <button class="btn btn-success" onclick="predictBusiness()">Run Business Prediction</button>
+            <div id="business-prediction-output" style="margin-top: 20px;"></div>
         </div>
 
         <div id="Single Customer Prediction" class="card" style="display: none;">
@@ -495,36 +546,36 @@
                 <div class="feature-inputs">
                     <div class="feature-input">
                         <label for="pred-age">Age:</label>
-                        <input type="number" id="pred-age" value="35" min="18" max="100">
+                        <input type="number" id="pred-age" value="35" min="18" max="100" class="form-control">
                     </div>
                     <div class="feature-input">
                         <label for="pred-gender">Gender:</label>
-                        <select id="pred-gender">
+                        <select id="pred-gender" class="form-control">
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
                         </select>
                     </div>
                     <div class="feature-input">
                         <label for="pred-premium">Annual Premium (₹):</label>
-                        <input type="number" id="pred-premium" value="30000" min="0" max="1000000">
+                        <input type="number" id="pred-premium" value="30000" min="0" max="1000000" class="form-control">
                     </div>
                     <div class="feature-input">
                         <label for="pred-license">Driving License:</label>
-                        <select id="pred-license">
+                        <select id="pred-license" class="form-control">
                             <option value="1">Yes</option>
                             <option value="0">No</option>
                         </select>
                     </div>
                     <div class="feature-input">
                         <label for="pred-insured">Previously Insured:</label>
-                        <select id="pred-insured">
+                        <select id="pred-insured" class="form-control">
                             <option value="1">Yes</option>
                             <option value="0">No</option>
                         </select>
                     </div>
                     <div class="feature-input">
                         <label for="pred-vehicle-age">Vehicle Age:</label>
-                        <select id="pred-vehicle-age">
+                        <select id="pred-vehicle-age" class="form-control">
                             <option value="< 1 Year">Less than 1 Year</option>
                             <option value="1-2 Year">1-2 Years</option>
                             <option value="> 2 Years">More than 2 Years</option>
@@ -532,19 +583,35 @@
                     </div>
                     <div class="feature-input">
                         <label for="pred-damage">Vehicle Damage:</label>
-                        <select id="pred-damage">
+                        <select id="pred-damage" class="form-control">
                             <option value="Yes">Yes</option>
                             <option value="No">No</option>
                         </select>
                     </div>
                     <div class="feature-input">
                         <label for="pred-vintage">Vintage (days):</label>
-                        <input type="number" id="pred-vintage" value="100" min="0" max="365">
+                        <input type="number" id="pred-vintage" value="100" min="0" max="365" class="form-control">
                     </div>
                 </div>
                 <button class="btn btn-success" onclick="predictSingle()">Predict Customer Interest</button>
             </div>
             <div id="single-result" class="prediction-result"></div>
+        </div>
+
+        <div id="Business Insights" class="card" style="display: none;">
+            <h2>📈 Business Insights & Customer Analysis</h2>
+            <div id="business-insights">
+                <p>Load data and train model to see business insights...</p>
+            </div>
+            <div id="business-visualizations"></div>
+        </div>
+        <!-- Business User Mode Sections -->
+        <div id="Business Insights" class="card" style="display: none;">
+            <h2>📈 Business Insights & Customer Analysis</h2>
+            <div id="business-insights">
+                <p>Load data and train model to see business insights...</p>
+            </div>
+            <div id="business-visualizations"></div>
         </div>
 
         <div id="Business Prediction" class="card" style="display: none;">

@@ -42,14 +42,12 @@ function switchMode(mode) {
             'Prediction', 'Export Results'
         ];
         
-        document.querySelectorAll('.card').forEach(card => {
-            const cardTitle = card.querySelector('h2');
-            if (cardTitle) {
-                const titleText = cardTitle.textContent || cardTitle.innerText;
-                if (mlSections.some(section => titleText.includes(section))) {
-                    card.style.display = 'block';
-                }
-            }
+        mlSections.forEach(section => {
+            const card = Array.from(document.querySelectorAll('.card')).find(card => {
+                const cardTitle = card.querySelector('h2');
+                return cardTitle && cardTitle.textContent.includes(section);
+            });
+            if (card) card.style.display = 'block';
         });
         
         document.getElementById('ml-mode-btn').style.background = 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)';
@@ -57,19 +55,19 @@ function switchMode(mode) {
         document.getElementById('mode-indicator').textContent = 'Current Mode: ML Specialist';
         document.getElementById('mode-indicator').style.color = '#007bff';
     } else {
-        // Business User Mode - show only relevant sections
+        // Business User Mode - show ONLY business sections in правильном порядке
         const businessSections = [
-            'Business Insights', 'Single Customer Prediction', 'Business Prediction'
+            'Business Prediction',  // Первый
+            'Single Customer Prediction',  // Второй  
+            'Business Insights'  // Третий
         ];
         
-        document.querySelectorAll('.card').forEach(card => {
-            const cardTitle = card.querySelector('h2');
-            if (cardTitle) {
-                const titleText = cardTitle.textContent || cardTitle.innerText;
-                if (businessSections.some(section => titleText.includes(section))) {
-                    card.style.display = 'block';
-                }
-            }
+        businessSections.forEach(section => {
+            const card = Array.from(document.querySelectorAll('.card')).find(card => {
+                const cardTitle = card.querySelector('h2');
+                return cardTitle && cardTitle.textContent.includes(section);
+            });
+            if (card) card.style.display = 'block';
         });
         
         document.getElementById('ml-mode-btn').style.background = '#6c757d';
@@ -91,6 +89,7 @@ function switchMode(mode) {
     }
     updateModelStatus();
 }
+
 
 // Update model status indicator
 function updateModelStatus() {
@@ -420,8 +419,8 @@ function createBusinessVisualizations() {
         });
         
         const genderChartData = [
-            { index: 'Male', value: (genderData.Male?.interested / genderData.Male?.total) * 100 || 0 },
-            { index: 'Female', value: (genderData.Female?.interested / genderData.Female?.total) * 100 || 0 }
+            { index: 'Male', value: genderData.Male ? (genderData.Male.interested / genderData.Male.total) * 100 : 0 },
+            { index: 'Female', value: genderData.Female ? (genderData.Female.interested / genderData.Female.total) * 100 : 0 }
         ];
         
         // Age distribution
@@ -444,41 +443,109 @@ function createBusinessVisualizations() {
             value: ageGroups[ageGroup]
         }));
         
+        // Vehicle Damage analysis
+        const damageData = {};
+        trainData.forEach(row => {
+            if (row.Vehicle_Damage && row.Response !== undefined && row.Response !== null) {
+                if (!damageData[row.Vehicle_Damage]) {
+                    damageData[row.Vehicle_Damage] = { interested: 0, total: 0 };
+                }
+                damageData[row.Vehicle_Damage].total++;
+                if (row.Response === 1) damageData[row.Vehicle_Damage].interested++;
+            }
+        });
+        
+        const damageChartData = [
+            { index: 'With Damage', value: damageData['Yes'] ? (damageData['Yes'].interested / damageData['Yes'].total) * 100 : 0 },
+            { index: 'No Damage', value: damageData['No'] ? (damageData['No'].interested / damageData['No'].total) * 100 : 0 }
+        ];
+        
         vizContainer.innerHTML += `
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
                 <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                     <h4>Interest Rate by Gender</h4>
-                    <div id="gender-chart"></div>
+                    <div id="gender-chart" style="height: 250px;"></div>
                 </div>
                 <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                     <h4>Customer Age Distribution</h4>
-                    <div id="age-chart"></div>
+                    <div id="age-chart" style="height: 250px;"></div>
+                </div>
+                <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <h4>Interest by Vehicle Damage</h4>
+                    <div id="damage-chart" style="height: 250px;"></div>
+                </div>
+                <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <h4>Premium Distribution</h4>
+                    <div id="premium-chart" style="height: 250px;"></div>
                 </div>
             </div>
         `;
         
-        // Render charts
-        tfvis.render.barchart(
-            { name: 'Interest Rate by Gender', tab: 'Business Analytics' },
-            genderChartData,
-            { 
-                xLabel: 'Gender', 
-                yLabel: 'Interest Rate (%)',
-                yAxisDomain: [0, 100]
+        // Render charts with proper error handling
+        setTimeout(() => {
+            try {
+                // Gender chart
+                tfvis.render.barchart(
+                    document.getElementById('gender-chart'),
+                    genderChartData,
+                    { 
+                        xLabel: 'Gender', 
+                        yLabel: 'Interest Rate (%)',
+                        yAxisDomain: [0, 100]
+                    }
+                );
+                
+                // Age chart
+                tfvis.render.barchart(
+                    document.getElementById('age-chart'),
+                    ageChartData,
+                    { 
+                        xLabel: 'Age Group', 
+                        yLabel: 'Number of Customers'
+                    }
+                );
+                
+                // Damage chart
+                tfvis.render.barchart(
+                    document.getElementById('damage-chart'),
+                    damageChartData,
+                    { 
+                        xLabel: 'Vehicle Damage', 
+                        yLabel: 'Interest Rate (%)',
+                        yAxisDomain: [0, 100]
+                    }
+                );
+                
+                // Premium distribution (histogram)
+                const premiums = trainData.map(row => row.Annual_Premium).filter(p => p && !isNaN(p));
+                const premiumBins = Array.from({length: 10}, (_, i) => {
+                    const min = Math.min(...premiums);
+                    const max = Math.max(...premiums);
+                    const binSize = (max - min) / 10;
+                    return {
+                        index: `₹${Math.round(min + i * binSize)}-${Math.round(min + (i+1) * binSize)}`,
+                        value: premiums.filter(p => p >= min + i * binSize && p < min + (i+1) * binSize).length
+                    };
+                });
+                
+                tfvis.render.barchart(
+                    document.getElementById('premium-chart'),
+                    premiumBins,
+                    { 
+                        xLabel: 'Premium Range', 
+                        yLabel: 'Number of Customers'
+                    }
+                );
+                
+            } catch (error) {
+                console.error('Error rendering charts:', error);
+                vizContainer.innerHTML += `<p style="color: red;">Error rendering charts: ${error.message}</p>`;
             }
-        );
-        
-        tfvis.render.barchart(
-            { name: 'Customer Age Distribution', tab: 'Business Analytics' },
-            ageChartData,
-            { 
-                xLabel: 'Age Group', 
-                yLabel: 'Number of Customers'
-            }
-        );
+        }, 500);
         
     } catch (error) {
         console.error('Error creating business visualizations:', error);
+        vizContainer.innerHTML += `<p style="color: red;">Error creating visualizations: ${error.message}</p>`;
     }
 }
 
@@ -1006,7 +1073,7 @@ async function trainModel() {
         validationData = valFeatures;
         validationLabels = valLabels;
         
-        const epochs = 50;
+        const epochs = parseInt(document.getElementById('epochs').value) || 50;
         
         // Class weights
         const labelsArray = await trainLabels.data();
@@ -1020,7 +1087,7 @@ async function trainModel() {
             1: positiveWeight
         };
 
-        // Early stopping variables
+        // 🔥 EARLY STOPPING VARIABLES
         let bestValLoss = Infinity;
         let patience = 5;
         let patienceCounter = 0;
@@ -1032,9 +1099,15 @@ async function trainModel() {
             validationData: [valFeatures, valLabels],
             classWeight: classWeight,
             callbacks: {
+                onEpochBegin: async (epoch, logs) => {
+                    if (epoch === 0) {
+                        bestWeights = model.getWeights();
+                    }
+                },
                 onEpochEnd: async (epoch, logs) => {
                     const status = `Epoch ${epoch + 1}/${epochs} - loss: ${logs.loss.toFixed(4)}, acc: ${logs.acc.toFixed(4)}, val_loss: ${logs.val_loss.toFixed(4)}, val_acc: ${logs.val_acc.toFixed(4)}`;
                     
+                    // 🔥 EARLY STOPPING LOGIC
                     if (logs.val_loss < bestValLoss) {
                         bestValLoss = logs.val_loss;
                         patienceCounter = 0;
@@ -1071,13 +1144,20 @@ async function trainModel() {
                     setTimeout(async () => {
                         try {
                             validationPredictions = model.predict(validationData);
+                            
+                            // Enable interactive evaluation
+                            document.getElementById('threshold-slider').disabled = false;
+                            document.getElementById('threshold-slider').addEventListener('input', updateMetrics);
+                            
+                            // Find optimal threshold and update metrics
+                            const optimalThreshold = await findOptimalThreshold();
+                            document.getElementById('threshold-slider').value = optimalThreshold;
                             await updateMetrics();
                             
-                            // Enable prediction button safely
+                            // Enable prediction button
                             const predictBtn = document.getElementById('predict-btn');
                             if (predictBtn) {
                                 predictBtn.disabled = false;
-                                console.log('Predict button enabled');
                             }
                             
                         } catch (error) {
@@ -1093,6 +1173,51 @@ async function trainModel() {
         statusDiv.innerHTML = `<p style="color: red;">Error during training: ${error.message}</p>`;
     }
 }
+
+// Find optimal threshold - НОВАЯ ФУНКЦИЯ
+async function findOptimalThreshold() {
+    if (!validationPredictions || !validationLabels) return 0.5;
+    
+    try {
+        const predVals = await validationPredictions.array();
+        const trueVals = await validationLabels.array();
+        
+        let bestF1 = 0;
+        let bestThreshold = 0.5;
+        
+        // Test different thresholds
+        for (let threshold = 0.1; threshold <= 0.9; threshold += 0.05) {
+            let tp = 0, tn = 0, fp = 0, fn = 0;
+            
+            for (let i = 0; i < predVals.length; i++) {
+                const prediction = predVals[i] >= threshold ? 1 : 0;
+                const actual = trueVals[i];
+                
+                if (prediction === 1 && actual === 1) tp++;
+                else if (prediction === 0 && actual === 0) tn++;
+                else if (prediction === 1 && actual === 0) fp++;
+                else if (prediction === 0 && actual === 1) fn++;
+            }
+            
+            const precision = tp / (tp + fp) || 0;
+            const recall = tp / (tp + fn) || 0;
+            const f1 = 2 * (precision * recall) / (precision + recall) || 0;
+            
+            if (f1 > bestF1) {
+                bestF1 = f1;
+                bestThreshold = threshold;
+            }
+        }
+        
+        console.log('Optimal threshold for F1 score:', bestThreshold.toFixed(2), 'F1:', bestF1.toFixed(4));
+        return bestThreshold;
+        
+    } catch (error) {
+        console.error('Error finding optimal threshold:', error);
+        return 0.5;
+    }
+}
+
 
 // Update metrics based on threshold
 async function updateMetrics() {
@@ -1170,11 +1295,86 @@ async function updateMetrics() {
                 <p><strong>Recall (Sensitivity):</strong> ${recall.toFixed(4)}</p>
                 <p><strong>Specificity:</strong> ${specificity.toFixed(4)}</p>
                 <p><strong>F1 Score:</strong> ${f1.toFixed(4)}</p>
+                <p><strong>Current Threshold:</strong> ${threshold.toFixed(2)}</p>
             </div>
         `;
         
+        // Plot ROC curve
+        await plotROC(trueVals, predVals);
+        
     } catch (error) {
         console.error('Error updating enhanced metrics:', error);
+    }
+}
+
+// Plot ROC curve - НОВАЯ ФУНКЦИЯ
+async function plotROC(trueLabels, predictions) {
+    try {
+        const thresholds = Array.from({ length: 100 }, (_, i) => i / 100);
+        const rocData = [];
+        
+        thresholds.forEach(threshold => {
+            let tp = 0, fn = 0, fp = 0, tn = 0;
+            
+            for (let i = 0; i < predictions.length; i++) {
+                const prediction = predictions[i] >= threshold ? 1 : 0;
+                const actual = trueLabels[i];
+                
+                if (actual === 1) {
+                    if (prediction === 1) tp++;
+                    else fn++;
+                } else {
+                    if (prediction === 1) fp++;
+                    else tn++;
+                }
+            }
+            
+            const tpr = tp / (tp + fn) || 0;
+            const fpr = fp / (fp + tn) || 0;
+            
+            rocData.push({ threshold, fpr, tpr });
+        });
+        
+        // AUC calculation
+        let auc = 0;
+        rocData.sort((a, b) => a.fpr - b.fpr);
+        
+        for (let i = 1; i < rocData.length; i++) {
+            const width = rocData[i].fpr - rocData[i-1].fpr;
+            const avgHeight = (rocData[i].tpr + rocData[i-1].tpr) / 2;
+            auc += width * avgHeight;
+        }
+        
+        console.log('AUC calculated:', auc);
+        
+        // Plot ROC curve
+        if (auc >= 0 && auc <= 1) {
+            const rocValues = rocData.map(d => ({ x: d.fpr, y: d.tpr }));
+            
+            tfvis.render.linechart(
+                { name: 'ROC Curve', tab: 'Model Evaluation' },
+                { values: rocValues },
+                { 
+                    xLabel: 'False Positive Rate', 
+                    yLabel: 'True Positive Rate',
+                    series: ['ROC Curve'],
+                    width: 400,
+                    height: 400
+                }
+            );
+            
+            // Add AUC to metrics
+            const metricsDiv = document.getElementById('performance-metrics');
+            if (metricsDiv) {
+                metricsDiv.innerHTML = metricsDiv.innerHTML.replace(
+                    '</div>', 
+                    `<p><strong>AUC:</strong> ${auc.toFixed(4)}</p></div>`
+                );
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error plotting ROC curve:', error);
     }
 }
 

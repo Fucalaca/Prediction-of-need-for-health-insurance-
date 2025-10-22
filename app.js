@@ -395,6 +395,7 @@ function generateBusinessInsights() {
 }
 
 // Create business visualizations
+// Create business visualizations - РАЗНОЦВЕТНЫЕ ГРАФИКИ
 function createBusinessVisualizations() {
     if (!trainData) return;
     
@@ -460,80 +461,94 @@ function createBusinessVisualizations() {
             { index: 'No Damage', value: damageData['No'] ? (damageData['No'].interested / damageData['No'].total) * 100 : 0 }
         ];
         
+        // Premium distribution
+        const premiums = trainData.map(row => row.Annual_Premium).filter(p => p && !isNaN(p));
+        const premiumRanges = [
+            { range: '0-20k', min: 0, max: 20000, color: '#4CAF50' },
+            { range: '20k-40k', min: 20000, max: 40000, color: '#2196F3' },
+            { range: '40k-60k', min: 40000, max: 60000, color: '#FF9800' },
+            { range: '60k+', min: 60000, max: Infinity, color: '#F44336' }
+        ];
+        
+        const premiumChartData = premiumRanges.map(range => ({
+            index: range.range,
+            value: premiums.filter(p => p >= range.min && p < range.max).length,
+            color: range.color
+        }));
+        
         vizContainer.innerHTML += `
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
                 <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                    <h4>Interest Rate by Gender</h4>
+                    <h4>🎭 Interest Rate by Gender</h4>
                     <div id="gender-chart" style="height: 250px;"></div>
                 </div>
                 <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                    <h4>Customer Age Distribution</h4>
+                    <h4>📅 Customer Age Distribution</h4>
                     <div id="age-chart" style="height: 250px;"></div>
                 </div>
                 <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                    <h4>Interest by Vehicle Damage</h4>
+                    <h4>🚗 Interest by Vehicle Damage</h4>
                     <div id="damage-chart" style="height: 250px;"></div>
                 </div>
                 <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                    <h4>Premium Distribution</h4>
+                    <h4>💰 Premium Distribution</h4>
                     <div id="premium-chart" style="height: 250px;"></div>
                 </div>
             </div>
         `;
         
-        // Render charts with proper error handling
+        // Render charts with colors
         setTimeout(() => {
             try {
-                // Gender chart
+                // Gender chart - разные цвета
                 tfvis.render.barchart(
                     document.getElementById('gender-chart'),
                     genderChartData,
                     { 
                         xLabel: 'Gender', 
                         yLabel: 'Interest Rate (%)',
-                        yAxisDomain: [0, 100]
+                        yAxisDomain: [0, 100],
+                        color: ['#FF6B6B', '#4ECDC4'] // Красный и бирюзовый
                     }
                 );
                 
-                // Age chart
+                // Age chart - градиент цветов
                 tfvis.render.barchart(
                     document.getElementById('age-chart'),
                     ageChartData,
                     { 
                         xLabel: 'Age Group', 
-                        yLabel: 'Number of Customers'
+                        yLabel: 'Number of Customers',
+                        color: ['#FF9FF3', '#F368E0', '#FF6B6B', '#EE5A24', '#C4E538'] // Розовые и оранжевые
                     }
                 );
                 
-                // Damage chart
+                // Damage chart - контрастные цвета
                 tfvis.render.barchart(
                     document.getElementById('damage-chart'),
                     damageChartData,
                     { 
                         xLabel: 'Vehicle Damage', 
                         yLabel: 'Interest Rate (%)',
-                        yAxisDomain: [0, 100]
+                        yAxisDomain: [0, 100],
+                        color: ['#FF9FF3', '#54A0FF'] // Розовый и синий
                     }
                 );
                 
-                // Premium distribution (histogram)
-                const premiums = trainData.map(row => row.Annual_Premium).filter(p => p && !isNaN(p));
-                const premiumBins = Array.from({length: 10}, (_, i) => {
-                    const min = Math.min(...premiums);
-                    const max = Math.max(...premiums);
-                    const binSize = (max - min) / 10;
-                    return {
-                        index: `₹${Math.round(min + i * binSize)}-${Math.round(min + (i+1) * binSize)}`,
-                        value: premiums.filter(p => p >= min + i * binSize && p < min + (i+1) * binSize).length
-                    };
-                });
+                // Premium chart - цвета из данных
+                const premiumColors = premiumChartData.map(item => item.color);
+                const premiumValues = premiumChartData.map(item => ({
+                    index: item.index,
+                    value: item.value
+                }));
                 
                 tfvis.render.barchart(
                     document.getElementById('premium-chart'),
-                    premiumBins,
+                    premiumValues,
                     { 
-                        xLabel: 'Premium Range', 
-                        yLabel: 'Number of Customers'
+                        xLabel: 'Premium Range (₹)', 
+                        yLabel: 'Number of Customers',
+                        color: premiumColors // Зеленый, синий, оранжевый, красный
                     }
                 );
                 

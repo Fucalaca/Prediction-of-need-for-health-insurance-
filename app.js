@@ -301,6 +301,67 @@ function createVisualizations() {
     }
 }
 
+// Basic feature extraction (original version)
+function extractFeatures(row, ageMedian, annualPremiumMedian, regionCodeMedian, policyChannelMedian) {
+    // Safe imputation
+    const age = (row.Age !== null && !isNaN(row.Age)) ? row.Age : ageMedian;
+    const annualPremium = (row.Annual_Premium !== null && !isNaN(row.Annual_Premium)) ? row.Annual_Premium : annualPremiumMedian;
+    const regionCode = (row.Region_Code !== null && !isNaN(row.Region_Code)) ? row.Region_Code : regionCodeMedian;
+    const policyChannel = (row.Policy_Sales_Channel !== null && !isNaN(row.Policy_Sales_Channel)) ? row.Policy_Sales_Channel : policyChannelMedian;
+    const vintage = (row.Vintage !== null && !isNaN(row.Vintage)) ? row.Vintage : 0;
+    
+    // Get training data for standardization
+    const trainAges = trainData.map(r => r.Age).filter(a => a !== null && !isNaN(a));
+    const trainPremiums = trainData.map(r => r.Annual_Premium).filter(p => p !== null && !isNaN(p));
+    const trainRegions = trainData.map(r => r.Region_Code).filter(c => c !== null && !isNaN(c));
+    const trainChannels = trainData.map(r => r.Policy_Sales_Channel).filter(c => c !== null && !isNaN(c));
+    const trainVintages = trainData.map(r => r.Vintage).filter(v => v !== null && !isNaN(v));
+    
+    // Standardization
+    const standardizedAge = (age - calculateMean(trainAges)) / (calculateStdDev(trainAges) || 1);
+    const standardizedPremium = (annualPremium - calculateMean(trainPremiums)) / (calculateStdDev(trainPremiums) || 1);
+    const standardizedRegion = (regionCode - calculateMean(trainRegions)) / (calculateStdDev(trainRegions) || 1);
+    const standardizedChannel = (policyChannel - calculateMean(trainChannels)) / (calculateStdDev(trainChannels) || 1);
+    const standardizedVintage = (vintage - calculateMean(trainVintages)) / (calculateStdDev(trainVintages) || 1);
+    
+    // One-hot encoding
+    const genderOneHot = oneHotEncode(row.Gender, ['Male', 'Female']);
+    const drivingLicenseOneHot = oneHotEncode(row.Driving_License?.toString(), ['0', '1']);
+    const previouslyInsuredOneHot = oneHotEncode(row.Previously_Insured?.toString(), ['0', '1']);
+    const vehicleAgeOneHot = oneHotEncode(row.Vehicle_Age, ['< 1 Year', '1-2 Year', '> 2 Years']);
+    const vehicleDamageOneHot = oneHotEncode(row.Vehicle_Damage, ['Yes', 'No']);
+    
+    // Start with numerical features
+    let features = [
+        isNaN(standardizedAge) ? 0 : standardizedAge,
+        isNaN(standardizedPremium) ? 0 : standardizedPremium,
+        isNaN(standardizedRegion) ? 0 : standardizedRegion,
+        isNaN(standardizedChannel) ? 0 : standardizedChannel,
+        isNaN(standardizedVintage) ? 0 : standardizedVintage
+    ];
+    
+    // Add one-hot encoded features
+    features = features.concat(
+        genderOneHot, 
+        drivingLicenseOneHot, 
+        previouslyInsuredOneHot, 
+        vehicleAgeOneHot, 
+        vehicleDamageOneHot
+    );
+    
+    // Add interaction features if enabled
+    if (document.getElementById('add-interaction-features').checked) {
+        const agePremiumInteraction = age * annualPremium / 1000000;
+        const premiumDamageInteraction = annualPremium * (row.Vehicle_Damage === 'Yes' ? 1 : 0);
+        features.push(
+            isNaN(agePremiumInteraction) ? 0 : agePremiumInteraction,
+            isNaN(premiumDamageInteraction) ? 0 : premiumDamageInteraction
+        );
+    }
+    
+    return features;
+}
+
 // Preprocess the data - OPTIMIZED VERSION
 function preprocessData() {
     if (!trainData || !testData) {

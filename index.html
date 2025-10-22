@@ -323,28 +323,28 @@
             </div>
 
             <div class="card">
-            <h2><span class="icon">🧠</span> Model Configuration</h2>
-            <div class="form-group">
-                <label for="model-type">Model Type</label>
-                <select id="model-type">
-                    <option value="simple">Simple Neural Network</option>
-                    <option value="deep">Deep Neural Network</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="epochs">Training Epochs</label>
-                <select id="epochs">
+                <h2><span class="icon">🧠</span> Model Configuration</h2>
+                <div class="form-group">
+                    <label for="model-type">Model Type</label>
+                    <select id="model-type">
+                        <option value="simple">Simple Neural Network</option>
+                        <option value="deep">Deep Neural Network</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="epochs">Training Epochs</label>
+                    <select id="epochs">
                     <option value="30">30 Epochs</option>
                     <option value="50" selected>50 Epochs</option>
                     <option value="80">80 Epochs</option>
                     <option value="100">100 Epochs</option>
-                </select>
+                    </select>
+                </div>
+                <button class="btn" id="create-model-btn" onclick="createModel()" disabled>
+                    <span class="icon">🧠</span> Create Model
+                </button>
+                <div id="model-summary"></div>
             </div>
-            <button class="btn" id="create-model-btn" onclick="createModel()" disabled>
-                <span class="icon">🧠</span> Create Model
-            </button>
-            
-            <div id="model-summary"></div>
         </div>
 
         <div class="grid">

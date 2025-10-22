@@ -139,17 +139,9 @@
             box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
         }
 
-        .btn-success:hover {
-            box-shadow: 0 8px 25px rgba(39, 174, 96, 0.6);
-        }
-
         .btn-warning {
             background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
             box-shadow: 0 5px 15px rgba(243, 156, 18, 0.4);
-        }
-
-        .btn-warning:hover {
-            box-shadow: 0 8px 25px rgba(243, 156, 18, 0.6);
         }
 
         .status {
@@ -231,74 +223,6 @@
             font-size: 1em;
         }
 
-        .metric-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .metric {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        .metric-value {
-            font-size: 2em;
-            font-weight: bold;
-            display: block;
-        }
-
-        .metric-label {
-            font-size: 0.9em;
-            opacity: 0.9;
-        }
-
-        .insight-card {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            margin: 15px 0;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            border-left: 5px solid #3498db;
-        }
-
-        .insight-card h4 {
-            color: #2c3e50;
-            margin-bottom: 15px;
-            font-size: 1.2em;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 15px 0;
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        th, td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #e1e8ed;
-        }
-
-        th {
-            background: #34495e;
-            color: white;
-            font-weight: 600;
-        }
-
-        tr:hover {
-            background: #f8f9fa;
-        }
-
         .mode-selector {
             display: flex;
             justify-content: center;
@@ -315,6 +239,15 @@
             border-radius: 25px;
             display: inline-block;
             box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        /* Скрытие секций по умолчанию */
+        .ml-section {
+            display: none;
+        }
+
+        .business-section {
+            display: none;
         }
 
         @media (max-width: 768px) {
@@ -348,7 +281,7 @@
         <div class="card">
             <h2>🎛️ Application Mode</h2>
             <div class="mode-selector">
-                <button onclick="switchMode('training')" id="ml-mode-btn" class="btn">
+                <button onclick="switchMode('training')" id="ml-mode-btn" class="btn btn-success">
                     🤖 ML Specialist Mode
                 </button>
                 <button onclick="switchMode('prediction')" id="business-mode-btn" class="btn">
@@ -363,10 +296,12 @@
             </div>
         </div>
 
-        <!-- ML SPECIALIST MODE SECTIONS -->
+        <!-- ==================== -->
+        <!-- ML SPECIALIST MODE -->
+        <!-- ==================== -->
         
         <!-- Data Upload -->
-        <div class="card" id="ml-section">
+        <div class="card ml-section">
             <h2>📁 Data Upload</h2>
             <div class="form-group">
                 <label for="train-file">Training Data (CSV)</label>
@@ -383,7 +318,7 @@
         </div>
 
         <!-- Data Exploration -->
-        <div class="card" id="ml-section">
+        <div class="card ml-section">
             <h2>🔍 Data Exploration</h2>
             <button class="btn" id="inspect-btn" onclick="inspectData()" disabled>
                 🔍 Inspect Data
@@ -398,7 +333,7 @@
 
         <div class="grid">
             <!-- Data Preprocessing -->
-            <div class="card" id="ml-section">
+            <div class="card ml-section">
                 <h2>⚙️ Data Preprocessing</h2>
                 <button class="btn" id="preprocess-btn" onclick="preprocessData()" disabled>
                     ⚙️ Preprocess Data
@@ -407,7 +342,7 @@
             </div>
 
             <!-- Model Configuration -->
-            <div class="card" id="ml-section">
+            <div class="card ml-section">
                 <h2>🧠 Model Configuration</h2>
                 <div class="form-group">
                     <label for="epochs">Training Epochs</label>
@@ -427,7 +362,7 @@
 
         <div class="grid">
             <!-- Model Training -->
-            <div class="card" id="ml-section">
+            <div class="card ml-section">
                 <h2>🚀 Model Training</h2>
                 <button class="btn btn-success" id="train-btn" onclick="trainModel()" disabled>
                     🚀 Train Model
@@ -436,7 +371,7 @@
             </div>
 
             <!-- Model Evaluation -->
-            <div class="card" id="ml-section">
+            <div class="card ml-section">
                 <h2>📈 Model Evaluation</h2>
                 <div class="slider-container">
                     <label>Prediction Threshold: <span id="threshold-value">0.50</span></label>
@@ -449,7 +384,7 @@
 
         <div class="grid">
             <!-- Prediction -->
-            <div class="card" id="ml-section">
+            <div class="card ml-section">
                 <h2>🔮 Prediction</h2>
                 <button class="btn" id="predict-btn" onclick="predict()" disabled>
                     🔮 Predict on Test Data
@@ -458,7 +393,7 @@
             </div>
 
             <!-- Export Results -->
-            <div class="card" id="ml-section">
+            <div class="card ml-section">
                 <h2>💾 Export Results</h2>
                 <button class="btn" id="export-btn" onclick="exportResults()" disabled>
                     💾 Export Predictions
@@ -467,17 +402,19 @@
             </div>
         </div>
 
-        <!-- BUSINESS USER MODE SECTIONS -->
+        <!-- ==================== -->
+        <!-- BUSINESS USER MODE -->
+        <!-- ==================== -->
         
         <!-- Business Insights -->
-        <div class="card" id="business-section" style="display: none;">
+        <div class="card business-section">
             <h2>📊 Business Insights & Analytics</h2>
             <div id="business-insights-business"></div>
             <div id="business-visualizations"></div>
         </div>
 
         <!-- Single Customer Prediction -->
-        <div class="card" id="business-section" style="display: none;">
+        <div class="card business-section">
             <h2>👤 Single Customer Prediction</h2>
             <div class="feature-inputs">
                 <div class="feature-input">
@@ -536,7 +473,7 @@
         </div>
 
         <!-- Business Batch Prediction -->
-        <div class="card" id="business-section" style="display: none;">
+        <div class="card business-section">
             <h2>📈 Business Batch Prediction</h2>
             <div class="form-group">
                 <label for="business-file">Upload Customer Data (CSV)</label>
@@ -549,6 +486,72 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script>
+        // Режимы приложения
+        const APP_MODE = {
+            TRAINING: 'training',
+            PREDICTION: 'prediction'
+        };
+
+        let currentMode = APP_MODE.TRAINING;
+
+        // Функция переключения режимов
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            // Скрываем все секции
+            document.querySelectorAll('.ml-section').forEach(section => {
+                section.style.display = 'none';
+            });
+            document.querySelectorAll('.business-section').forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            // Показываем нужные секции
+            if (mode === APP_MODE.TRAINING) {
+                document.querySelectorAll('.ml-section').forEach(section => {
+                    section.style.display = 'block';
+                });
+                document.getElementById('ml-mode-btn').classList.add('btn-success');
+                document.getElementById('business-mode-btn').classList.remove('btn-success');
+                document.getElementById('mode-indicator').textContent = 'Current Mode: ML Specialist';
+                document.getElementById('mode-indicator').style.color = '#27ae60';
+            } else {
+                document.querySelectorAll('.business-section').forEach(section => {
+                    section.style.display = 'block';
+                });
+                document.getElementById('business-mode-btn').classList.add('btn-success');
+                document.getElementById('ml-mode-btn').classList.remove('btn-success');
+                document.getElementById('mode-indicator').textContent = 'Current Mode: Business User';
+                document.getElementById('mode-indicator').style.color = '#3498db';
+                
+                // Показываем alert если модель не обучена
+                if (!trainedModel) {
+                    setTimeout(() => {
+                        alert('No trained model available. Please train the model in ML Specialist mode first.');
+                        switchMode(APP_MODE.TRAINING);
+                    }, 100);
+                }
+            }
+        }
+
+        // Инициализация - показываем ML режим по умолчанию
+        document.addEventListener('DOMContentLoaded', function() {
+            switchMode(APP_MODE.TRAINING);
+        });
+
+        // Заглушки для функций (они должны быть в app.js)
+        let trainedModel = null;
+        function loadData() { alert('Load Data function'); }
+        function inspectData() { alert('Inspect Data function'); }
+        function preprocessData() { alert('Preprocess Data function'); }
+        function createModel() { alert('Create Model function'); }
+        function trainModel() { alert('Train Model function'); }
+        function predict() { alert('Predict function'); }
+        function exportResults() { alert('Export Results function'); }
+        function predictSingle() { alert('Single Prediction function'); }
+        function predictBusiness() { alert('Business Prediction function'); }
+        function toggleVisor() { alert('Toggle Visor function'); }
+    </script>
 </body>
 </html>

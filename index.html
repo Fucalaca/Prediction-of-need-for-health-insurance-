@@ -3,27 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vehicle Insurance Cross-Selling Prediction</title>
+    <title>Health Insurance Prediction App</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@1.5.1"></script>
     <style>
-        :root {
-            --primary: #007bff;
-            --secondary: #6c757d;
-            --success: #28a745;
-            --danger: #dc3545;
-            --warning: #ffc107;
-            --info: #17a2b8;
-            --light: #f8f9fa;
-            --dark: #343a40;
-        }
-        
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
@@ -31,13 +20,13 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
         }
-        
+
         .container {
             max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
         }
-        
+
         .header {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
@@ -48,220 +37,223 @@
             margin-bottom: 30px;
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        
+
         .header h1 {
             color: #2c3e50;
-            font-size: 2.5rem;
+            font-size: 2.5em;
             margin-bottom: 10px;
             font-weight: 700;
         }
-        
+
         .header p {
             color: #7f8c8d;
-            font-size: 1.2rem;
+            font-size: 1.2em;
             margin-bottom: 20px;
         }
-        
+
         .mode-selector {
             display: flex;
             justify-content: center;
             gap: 20px;
             margin: 20px 0;
         }
-        
+
         .mode-btn {
             padding: 15px 30px;
             border: none;
             border-radius: 50px;
-            font-size: 1.1rem;
+            font-size: 1.1em;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-            color: white;
         }
-        
+
         .mode-btn:hover {
-            transform: translateY(-3px);
+            transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
         }
-        
+
         .mode-indicator {
-            font-size: 1.1rem;
+            font-size: 1.1em;
             font-weight: 600;
+            margin-top: 10px;
             padding: 10px 20px;
             background: white;
             border-radius: 25px;
             display: inline-block;
-            margin-top: 10px;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
         }
-        
+
         .card {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-radius: 20px;
             padding: 30px;
             margin-bottom: 30px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
             transition: transform 0.3s ease;
         }
-        
+
         .card:hover {
             transform: translateY(-5px);
         }
-        
+
         .card h2 {
             color: #2c3e50;
             margin-bottom: 20px;
-            font-size: 1.8rem;
-            border-bottom: 3px solid var(--primary);
+            font-size: 1.8em;
+            border-bottom: 3px solid #3498db;
             padding-bottom: 10px;
-            display: inline-block;
         }
-        
+
         .card h3 {
             color: #34495e;
             margin: 20px 0 15px 0;
-            font-size: 1.4rem;
+            font-size: 1.4em;
         }
-        
+
         .form-group {
             margin-bottom: 20px;
         }
-        
-        label {
+
+        .form-group label {
             display: block;
             margin-bottom: 8px;
             font-weight: 600;
             color: #2c3e50;
         }
-        
-        input, select, button {
+
+        .form-control {
             width: 100%;
             padding: 12px 15px;
-            border: 2px solid #e9ecef;
+            border: 2px solid #e1e8ed;
             border-radius: 10px;
-            font-size: 1rem;
-            transition: all 0.3s ease;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
         }
-        
-        input:focus, select:focus {
+
+        .form-control:focus {
             outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
         }
-        
-        button {
-            background: linear-gradient(135deg, var(--primary) 0%, #0056b3 100%);
+
+        .btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
             color: white;
             border: none;
-            cursor: pointer;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1em;
             font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
         }
-        
-        button:hover {
+
+        .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.4);
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.6);
         }
-        
-        button:disabled {
-            background: var(--secondary);
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        
+
         .btn-success {
-            background: linear-gradient(135deg, var(--success) 0%, #1e7e34 100%);
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
         }
-        
-        .btn-warning {
-            background: linear-gradient(135deg, var(--warning) 0%, #e0a800 100%);
-            color: #212529;
+
+        .btn-success:hover {
+            box-shadow: 0 8px 25px rgba(39, 174, 96, 0.6);
         }
-        
+
         .btn-danger {
-            background: linear-gradient(135deg, var(--danger) 0%, #c82333 100%);
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
         }
-        
+
+        .btn-danger:hover {
+            box-shadow: 0 8px 25px rgba(231, 76, 60, 0.6);
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-weight: 600;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
         .grid-2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
         }
-        
+
         .grid-3 {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             gap: 20px;
         }
-        
-        .status-box {
-            background: #f8f9fa;
-            border-left: 4px solid var(--primary);
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-        }
-        
-        .status-box.success {
-            border-left-color: var(--success);
-            background: #d4edda;
-        }
-        
-        .status-box.error {
-            border-left-color: var(--danger);
-            background: #f8d7da;
-        }
-        
-        .status-box.warning {
-            border-left-color: var(--warning);
-            background: #fff3cd;
-        }
-        
-        .model-status {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: white;
-            padding: 10px 20px;
-            border-radius: 25px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-            font-weight: 600;
-            z-index: 1000;
-        }
-        
-        .feature-grid {
+
+        .metric-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 15px;
             margin: 20px 0;
         }
-        
-        .feature-item {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
+
+        .metric {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
             text-align: center;
-            border: 2px solid #e9ecef;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
-        
-        .feature-item h4 {
-            margin-bottom: 10px;
-            color: #495057;
+
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            display: block;
         }
-        
-        .feature-item .value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary);
+
+        .metric-label {
+            font-size: 0.9em;
+            opacity: 0.9;
         }
-        
+
+        .insight-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 15px 0;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid #3498db;
+        }
+
+        .insight-card h4 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -271,272 +263,274 @@
             overflow: hidden;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         }
-        
+
         th, td {
             padding: 12px 15px;
             text-align: left;
-            border-bottom: 1px solid #e9ecef;
+            border-bottom: 1px solid #e1e8ed;
         }
-        
+
         th {
-            background: var(--primary);
+            background: #34495e;
             color: white;
             font-weight: 600;
         }
-        
+
         tr:hover {
             background: #f8f9fa;
         }
-        
-        .prediction-high {
-            background: #d4edda !important;
-            color: #155724;
-            font-weight: 600;
+
+        .prediction-form {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
         }
-        
-        .prediction-low {
-            background: #f8d7da !important;
-            color: #721c24;
+
+        .prediction-result {
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            display: none;
         }
-        
+
         @media (max-width: 768px) {
             .grid-2, .grid-3 {
                 grid-template-columns: 1fr;
             }
             
             .header h1 {
-                font-size: 2rem;
-            }
-            
-            .mode-selector {
-                flex-direction: column;
-                align-items: center;
+                font-size: 2em;
             }
             
             .mode-btn {
-                width: 100%;
-                max-width: 300px;
+                padding: 12px 20px;
+                font-size: 1em;
             }
+        }
+
+        .feature-inputs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .feature-input {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .feature-input label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .feature-input select,
+        .feature-input input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 1em;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Header Section -->
         <div class="header">
-            <h1>🚗 Vehicle Insurance Cross-Selling Predictor</h1>
-            <p>AI-powered solution to identify customers interested in vehicle insurance</p>
+            <h1>🚗 Health Insurance Cross-Selling Prediction</h1>
+            <p>Predict Vehicle Insurance Interest using Machine Learning</p>
             
             <div class="mode-selector">
                 <button id="ml-mode-btn" class="mode-btn" onclick="switchMode('training')">
-                    🔬 ML Specialist Mode
+                    🤖 ML Specialist Mode
                 </button>
                 <button id="business-mode-btn" class="mode-btn" onclick="switchMode('prediction')">
                     💼 Business User Mode
                 </button>
             </div>
             
-            <div class="mode-indicator" id="mode-indicator">
+            <div id="mode-indicator" class="mode-indicator">
                 Current Mode: ML Specialist
             </div>
         </div>
 
-        <!-- Model Status Indicator -->
-        <div class="model-status" id="model-status">
-            🔴 No Model Available - Train First
-        </div>
-
-        <!-- ML SPECIALIST MODE SECTIONS -->
-        
-        <!-- Data Upload Section -->
-        <div id="data-upload-section" class="card">
-            <h2>📁 Data Upload & Configuration</h2>
-            <div class="grid-2">
-                <div class="form-group">
-                    <label for="train-file">Training Data (CSV)</label>
-                    <input type="file" id="train-file" accept=".csv">
-                    <small>Upload training dataset with customer features and response</small>
-                </div>
-                <div class="form-group">
-                    <label for="test-file">Test Data (CSV)</label>
-                    <input type="file" id="test-file" accept=".csv">
-                    <small>Upload test dataset for predictions</small>
-                </div>
+        <!-- ML Specialist Mode Sections -->
+        <div id="Data Upload" class="card">
+            <h2>📁 Data Upload</h2>
+            <div class="form-group">
+                <label for="train-file">Training Data (CSV):</label>
+                <input type="file" id="train-file" class="form-control" accept=".csv">
             </div>
-            <button onclick="loadData()">Load Datasets</button>
-            <div id="data-status" class="status-box">
-                No data loaded. Please upload training and test CSV files.
+            <div class="form-group">
+                <label for="test-file">Test Data (CSV, optional):</label>
+                <input type="file" id="test-file" class="form-control" accept=".csv">
             </div>
+            <button class="btn" onclick="loadData()">Load Data</button>
+            <div id="data-status" class="status info"></div>
         </div>
 
-        <!-- Data Exploration Section -->
-        <div id="data-exploration-section" class="card">
-            <h2>🔍 Data Exploration & Analysis</h2>
-            <button id="inspect-btn" onclick="inspectData()" disabled>Inspect Data</button>
-            
-            <div id="data-preview" style="margin-top: 20px;"></div>
-            <div id="data-stats" style="margin-top: 20px;"></div>
-            <div id="charts" style="margin-top: 20px;"></div>
+        <div id="Data Exploration" class="card">
+            <h2>🔍 Data Exploration</h2>
+            <button id="inspect-btn" class="btn" onclick="inspectData()" disabled>Inspect Data</button>
+            <div id="data-preview"></div>
+            <div id="data-stats"></div>
         </div>
 
-        <!-- Data Preprocessing Section -->
-        <div id="data-preprocessing-section" class="card">
+        <div id="Data Preprocessing" class="card">
             <h2>⚙️ Data Preprocessing</h2>
-            <p>Automated preprocessing including imputation, normalization, and feature engineering</p>
-            <button id="preprocess-btn" onclick="preprocessData()" disabled>Preprocess Data</button>
-            <div id="preprocessing-output" class="status-box">
-                Preprocessing not started.
-            </div>
+            <button id="preprocess-btn" class="btn" onclick="preprocessData()" disabled>
+                <span class="icon">⚙️</span> Preprocess Data
+            </button>
+            <!-- ДОБАВЬТЕ ЭТУ СТРОКУ -->
+            <div id="preprocessing-output" class="status"></div>
         </div>
-
-        <!-- Model Configuration Section -->
-        <div id="model-config-section" class="card">
+        <div id="Model Configuration" class="card">
             <h2>🧠 Model Configuration</h2>
-            <div class="form-group">
-                <label for="epochs">Training Epochs</label>
-                <input type="number" id="epochs" value="50" min="10" max="200">
-            </div>
-            <button id="create-model-btn" onclick="createModel()" disabled>Create Neural Network Model</button>
-            <div id="model-summary" style="margin-top: 20px;"></div>
-        </div>
-
-        <!-- Model Training Section -->
-        <div id="model-training-section" class="card">
-            <h2>🚀 Model Training</h2>
-            <button id="train-btn" onclick="trainModel()" disabled>Start Training</button>
-            <div id="training-status" class="status-box">
-                Training not started.
-            </div>
-        </div>
-
-        <!-- Model Evaluation Section -->
-        <div id="model-evaluation-section" class="card">
-            <h2>📊 Model Evaluation</h2>
-            <button id="evaluate-btn" onclick="evaluateModel()" disabled>Evaluate Model</button>
-            <div id="evaluation-results" style="margin-top: 20px;"></div>
-        </div>
-
-        <!-- Prediction Section -->
-        <div id="prediction-section" class="card">
-            <h2>🔮 Make Predictions</h2>
-            <button id="predict-btn" onclick="makePredictions()" disabled>Predict on Test Data</button>
-            <div id="prediction-results" style="margin-top: 20px;"></div>
-        </div>
-
-        <!-- Export Section -->
-        <div id="export-section" class="card">
-            <h2>💾 Export Results</h2>
-            <button id="export-btn" onclick="exportResults()" disabled>Export Predictions to CSV</button>
-        </div>
-
-        <!-- BUSINESS USER MODE SECTIONS -->
         
-        <!-- Business Data Upload Section -->
-        <div id="business-data-upload-section" class="card" style="display: none;">
-            <h2>📊 Business Data Upload</h2>
-            <div class="form-group">
-                <label for="business-test-file">Customer Data for Analysis (CSV)</label>
-                <input type="file" id="business-test-file" accept=".csv">
-                <small>Upload customer dataset for business analysis and predictions</small>
-            </div>
-            <button onclick="loadBusinessData()">Load Customer Data</button>
-            <div id="business-data-status" class="status-box">
-                No customer data loaded.
-            </div>
+                <div class="form-group">
+                    <label for="model-type">Model Type</label>
+                    <select id="model-type">
+                        <option value="simple">Simple Neural Network</option>
+                        <option value="deep">Deep Neural Network</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="epochs">Training Epochs</label>
+                    <select id="epochs">
+                        <option value="30">30 Epochs</option>
+                        <option value="50" selected>50 Epochs</option>
+                        <option value="80">80 Epochs</option>
+                        <option value="100">100 Epochs</option>
+                    </select>
+                </div>
+                
+                <!-- ДОБАВЛЕНА ЭТА КНОПКА -->
+                <button class="btn" id="create-model-btn" onclick="createModel()" disabled>
+                    <span class="icon">🧠</span> Create Model
+                </button>
+                
+                <div id="model-summary"></div>
         </div>
 
-        <!-- Business Insights Section -->
-        <div id="business-insights-section" class="card" style="display: none;">
+        <div id="Model Training" class="card">
+            <h2>🚀 Model Training</h2>
+            
+            <!-- ДОБАВЬТЕ ЭТУ КНОПКУ -->
+            <button class="btn" id="train-btn" onclick="trainModel()" disabled>
+                <span class="icon">🚀</span> Train Model
+            </button>
+            
+            <div id="training-status" class="status"></div>
+       </div>
+
+        <div id="Model Evaluation" class="card">
+            <h2>📊 Model Evaluation</h2>
+            <button class="btn" onclick="evaluateModel()">Evaluate Model</button>
+            <div id="evaluation-results"></div>
+        </div>
+
+        <div id="Prediction" class="card">
+            <h2>🔮 Prediction</h2>
+            <button class="btn" onclick="predict()">Predict on Test Data</button>
+            <div id="prediction-results"></div>
+        </div>
+
+        <div id="Export Results" class="card">
+            <h2>💾 Export Results</h2>
+            <button class="btn" onclick="exportResults()">Export Predictions</button>
+            <div id="export-status"></div>
+        </div>
+
+        <!-- Business User Mode Sections -->
+        <div id="Business Insights" class="card" style="display: none;">
             <h2>📈 Business Insights & Customer Analysis</h2>
-            <div id="business-insights-content">
-                <p>Load customer data to see detailed business insights and analysis.</p>
+            <div id="business-insights">
+                <p>Load data and train model to see business insights...</p>
             </div>
-            <div id="business-charts" style="margin-top: 20px;"></div>
+            <div id="business-visualizations"></div>
         </div>
 
-        <!-- Business Prediction Section -->
-        <div id="business-prediction-section" class="card" style="display: none;">
-            <h2>🎯 Bulk Customer Predictions</h2>
-            <button id="business-predict-btn" onclick="makeBusinessPredictions()" disabled>Generate Business Predictions</button>
-            <div id="business-prediction-results" style="margin-top: 20px;"></div>
+        <div id="Single Customer Prediction" class="card" style="display: none;">
+            <h2>🎯 Single Customer Prediction</h2>
+            <div class="prediction-form">
+                <div class="feature-inputs">
+                    <div class="feature-input">
+                        <label for="pred-age">Age:</label>
+                        <input type="number" id="pred-age" value="35" min="18" max="100">
+                    </div>
+                    <div class="feature-input">
+                        <label for="pred-gender">Gender:</label>
+                        <select id="pred-gender">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div class="feature-input">
+                        <label for="pred-premium">Annual Premium (₹):</label>
+                        <input type="number" id="pred-premium" value="30000" min="0" max="1000000">
+                    </div>
+                    <div class="feature-input">
+                        <label for="pred-license">Driving License:</label>
+                        <select id="pred-license">
+                            <option value="1">Yes</option>
+                            <option value="0">No</option>
+                        </select>
+                    </div>
+                    <div class="feature-input">
+                        <label for="pred-insured">Previously Insured:</label>
+                        <select id="pred-insured">
+                            <option value="1">Yes</option>
+                            <option value="0">No</option>
+                        </select>
+                    </div>
+                    <div class="feature-input">
+                        <label for="pred-vehicle-age">Vehicle Age:</label>
+                        <select id="pred-vehicle-age">
+                            <option value="< 1 Year">Less than 1 Year</option>
+                            <option value="1-2 Year">1-2 Years</option>
+                            <option value="> 2 Years">More than 2 Years</option>
+                        </select>
+                    </div>
+                    <div class="feature-input">
+                        <label for="pred-damage">Vehicle Damage:</label>
+                        <select id="pred-damage">
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    <div class="feature-input">
+                        <label for="pred-vintage">Vintage (days):</label>
+                        <input type="number" id="pred-vintage" value="100" min="0" max="365">
+                    </div>
+                </div>
+                <button class="btn btn-success" onclick="predictSingle()">Predict Customer Interest</button>
+            </div>
+            <div id="single-result" class="prediction-result"></div>
         </div>
 
-        <!-- Single Customer Prediction Section -->
-        <div id="single-prediction-section" class="card" style="display: none;">
-            <h2>👤 Single Customer Prediction</h2>
-            <p>Enter customer details to predict vehicle insurance interest</p>
-            
-            <div class="grid-3">
-                <div class="form-group">
-                    <label for="age">Age *</label>
-                    <input type="number" id="age" placeholder="Enter age" min="18" max="100">
-                </div>
-                
-                <div class="form-group">
-                    <label for="gender">Gender</label>
-                    <select id="gender">
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="driving-license">Driving License</label>
-                    <select id="driving-license">
-                        <option value="1">Yes</option>
-                        <option value="0">No</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="region-code">Region Code</label>
-                    <input type="number" id="region-code" placeholder="e.g., 28" min="0" max="50">
-                </div>
-                
-                <div class="form-group">
-                    <label for="previously-insured">Previously Insured</label>
-                    <select id="previously-insured">
-                        <option value="1">Yes</option>
-                        <option value="0">No</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="vehicle-age">Vehicle Age</label>
-                    <select id="vehicle-age">
-                        <option value="< 1 Year">&lt; 1 Year</option>
-                        <option value="1-2 Year">1-2 Year</option>
-                        <option value="> 2 Years">&gt; 2 Years</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="vehicle-damage">Vehicle Damage History</label>
-                    <select id="vehicle-damage">
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="annual-premium">Annual Premium (₹) *</label>
-                    <input type="number" id="annual-premium" placeholder="e.g., 35000" min="0">
-                </div>
-                
-                <div class="form-group">
-                    <label for="policy-channel">Policy Sales Channel</label>
-                    <input type="number" id="policy-channel" placeholder="e.g., 26" min="0" max="200">
-                </div>
-                
-                <div class="form-group">
-                    <label for="vintage">Vintage (Days)</label>
-                    <input type="number" id="vintage" placeholder="e.g., 150" min="0" max="365">
-                </div>
+        <div id="Business Prediction" class="card" style="display: none;">
+            <h2>📊 Business Batch Prediction</h2>
+            <div class="form-group">
+                <label for="business-file">Upload Customer Data (CSV):</label>
+                <input type="file" id="business-file" class="form-control" accept=".csv">
             </div>
-            
-            <button onclick="makeSinglePrediction()" class="btn-success">Predict Customer Interest</button>
-            
-            <div id="single-prediction-result" style="margin-top: 20px;"></div>
+            <button class="btn btn-success" onclick="predictBusiness()">Run Business Prediction</button>
+            <div id="business-prediction-output" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- Model Status Indicator -->
+        <div class="card">
+            <h2>🔄 System Status</h2>
+            <div id="model-status" class="status info">
+                🔴 No Model Available - Train First
+            </div>
         </div>
     </div>
 

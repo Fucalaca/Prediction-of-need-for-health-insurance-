@@ -628,7 +628,7 @@ function createModel() {
     
     // Enhanced compilation
     model.compile({
-        optimizer: tf.train.adam(0.005),
+        optimizer: tf.train.adam(0.0005),
         loss: 'binaryCrossentropy',
         metrics: ['accuracy'] // Keep it simple for compatibility
     });

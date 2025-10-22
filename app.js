@@ -92,6 +92,18 @@ function switchMode(mode) {
     updateModelStatus();
 }
 
+// Update model status indicator
+function updateModelStatus() {
+    const statusElement = document.getElementById('model-status');
+    if (trainedModel) {
+        statusElement.innerHTML = '🟢 Model Ready for Predictions';
+        statusElement.style.color = 'green';
+    } else {
+        statusElement.innerHTML = '🔴 No Model Available - Train First';
+        statusElement.style.color = '#dc3545';
+    }
+}
+
 // Load data from uploaded CSV files
 async function loadData() {
     const trainFile = document.getElementById('train-file').files[0];
@@ -227,6 +239,9 @@ function inspectData() {
     
     // Enable the preprocess button
     document.getElementById('preprocess-btn').disabled = false;
+    
+    // Generate business insights for ML mode too
+    generateBusinessInsights();
 }
 
 // Create a preview table from data
@@ -289,7 +304,7 @@ function createPreviewTable(data) {
     return tableContainer;
 }
 
-// Enhanced Business Insights for Business Mode
+// Enhanced Business Insights
 function generateBusinessInsights() {
     if (!trainData || trainData.length === 0) {
         console.log('No data available for business insights');
@@ -330,18 +345,6 @@ function generateBusinessInsights() {
             }
             damageData[row.Vehicle_Damage].total++;
             if (row.Response === 1) damageData[row.Vehicle_Damage].interested++;
-        }
-    });
-    
-    // Gender analysis
-    const genderData = {};
-    trainData.forEach(row => {
-        if (row.Gender && row.Response !== undefined && row.Response !== null) {
-            if (!genderData[row.Gender]) {
-                genderData[row.Gender] = { interested: 0, total: 0 };
-            }
-            genderData[row.Gender].total++;
-            if (row.Response === 1) genderData[row.Gender].interested++;
         }
     });
     
@@ -741,66 +744,7 @@ function createBusinessPredictionTable(results) {
     return tableHTML;
 }
 
-// Update model status
-function updateModelStatus() {
-    const statusElement = document.getElementById('model-status');
-    if (trainedModel) {
-        statusElement.innerHTML = '🟢 Model Ready for Predictions';
-        statusElement.style.color = 'green';
-    } else {
-        statusElement.innerHTML = '🔴 No Model Available - Train First';
-        statusElement.style.color = '#dc3545';
-    }
-}
-
-// Keep the rest of your existing functions (loadData, parseCSV, createModel, trainModel, etc.)
-// but add this line at the end of trainModel to save the trained model:
-const originalTrainModel = trainModel;
-trainModel = async function() {
-    await originalTrainModel.call(this);
-    trainedModel = model;
-    updateModelStatus();
-    console.log('Model saved for business predictions');
-};
-
-// Initialize the application
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Health Insurance Prediction App initialized');
-    updateModelStatus();
-    switchMode(APP_MODE.TRAINING); // Start in ML Specialist mode
-    
-    // Close visor on page load
-    if (tfvis.visor().isOpen()) {
-        tfvis.visor().close();
-    }
-});
-
-// Add these helper functions if they don't exist
-function calculateMean(values) {
-    if (!values || values.length === 0) return 0;
-    return values.reduce((sum, val) => sum + val, 0) / values.length;
-}
-
-function calculateStdDev(values) {
-    if (!values || values.length === 0) return 0;
-    const mean = calculateMean(values);
-    const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
-    const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
-    return Math.sqrt(variance);
-}
-
-function oneHotEncode(value, categories) {
-    if (!categories || categories.length === 0) return [];
-    const encoding = new Array(categories.length).fill(0);
-    const index = categories.indexOf(value);
-    if (index !== -1) {
-        encoding[index] = 1;
-    }
-    return encoding;
-}
-
-// Include all your existing functions below (preprocessData, extractFeatures, createModel, trainModel, etc.)
-// Make sure they're the same as in your original app.js
+// ========== ML SPECIALIST FUNCTIONS ==========
 
 // Preprocess the data - OPTIMIZED VERSION
 function preprocessData() {
@@ -851,12 +795,6 @@ function preprocessData() {
                     preprocessedTrainData.features.push(features);
                     preprocessedTrainData.labels.push(row[TARGET_FEATURE]);
                 });
-                
-                // Update progress
-                if (i % 5000 === 0) {
-                    outputDiv.innerHTML = `Preprocessing training data... ${Math.min(i + batchSize, trainData.length)}/${trainData.length} samples`;
-                    console.log(`Processed ${Math.min(i + batchSize, trainData.length)}/${trainData.length} training samples`);
-                }
             }
             
             // Preprocess test data
@@ -873,28 +811,13 @@ function preprocessData() {
                     preprocessedTestData.features.push(features);
                     preprocessedTestData.customerIds.push(row[ID_FEATURE]);
                 });
-                
-                // Update progress
-                if (i % 5000 === 0) {
-                    outputDiv.innerHTML = `Preprocessing test data... ${Math.min(i + batchSize, testData.length)}/${testData.length} samples`;
-                    console.log(`Processed ${Math.min(i + batchSize, testData.length)}/${testData.length} test samples`);
-                }
             }
             
-            console.log('First 5 processed feature vectors:');
-            for (let i = 0; i < Math.min(5, preprocessedTrainData.features.length); i++) {
-                console.log(`Sample ${i}:`, preprocessedTrainData.features[i]);
-                console.log(`Corresponding label:`, preprocessedTrainData.labels[i]);
-            }
-            console.log('Converting to tensors...');
-
             // Convert to tensors
             preprocessedTrainData.features = tf.tensor2d(preprocessedTrainData.features);
             preprocessedTrainData.labels = tf.tensor1d(preprocessedTrainData.labels);
             
             console.log('Preprocessing completed successfully');
-            console.log('Training features shape:', preprocessedTrainData.features.shape);
-            console.log('Test features count:', preprocessedTestData.features.length);
             
             outputDiv.innerHTML = `
                 <div style="color: green;">
@@ -916,7 +839,7 @@ function preprocessData() {
                 <p>Check console for details</p>
             </div>`;
         }
-    }, 100); // Small delay to ensure UI updates
+    }, 100);
 }
 
 // Extract features from a row with imputation and normalization
@@ -967,25 +890,14 @@ function extractFeatures(row, ageMedian, annualPremiumMedian, regionCodeMedian, 
         vehicleDamageOneHot
     );
     
-    // CRITICAL: Add domain-specific engineered features
-    // 1. Age groups (insurance relevance)
-    const ageGroup = age < 25 ? 0 : age < 40 ? 1 : age < 60 ? 2 : 3;
-    //const ageGroupOneHot = oneHotEncode(ageGroup.toString(), ['0', '1', '2', '3']);
-    //features = features.concat(ageGroupOneHot);
-    
-    // 2. Premium to age ratio (affordability indicator)
-    //const premiumToAgeRatio = annualPremium / (age || 1);
-    //features.push(isNaN(premiumToAgeRatio) ? 0 : premiumToAgeRatio / 1000);
-    
-    // 3. Risk profile: Young drivers with vehicle damage
+    // Add engineered features
     const youngRiskyDriver = (age < 30 && row.Vehicle_Damage === 'Yes') ? 1 : 0;
     features.push(youngRiskyDriver);
     
-    // 4. Previously insured but no current insurance (potential customer)
     const lapsedCustomer = (row.Previously_Insured === 1 && row.Vehicle_Damage === 'Yes') ? 1 : 0;
     features.push(lapsedCustomer);
     
-    // 5. Premium segments
+    // Premium segments
     const premiumSegment = annualPremium < 20000 ? 0 : annualPremium < 50000 ? 1 : 2;
     const premiumSegmentOneHot = oneHotEncode(premiumSegment.toString(), ['0', '1', '2']);
     features = features.concat(premiumSegmentOneHot);
@@ -993,51 +905,7 @@ function extractFeatures(row, ageMedian, annualPremiumMedian, regionCodeMedian, 
     return features;
 }
 
-// Calculate median of an array
-function calculateMedian(values) {
-    if (!values || values.length === 0) return 0;
-    
-    const sorted = [...values].sort((a, b) => a - b);
-    const half = Math.floor(sorted.length / 2);
-    
-    if (sorted.length % 2 === 0) {
-        return (sorted[half - 1] + sorted[half]) / 2;
-    }
-    
-    return sorted[half];
-}
-
-// Calculate mean of an array
-function calculateMean(values) {
-    if (!values || values.length === 0) return 0;
-    return values.reduce((sum, val) => sum + val, 0) / values.length;
-}
-
-// Calculate standard deviation of an array
-function calculateStdDev(values) {
-    if (!values || values.length === 0) return 0;
-    
-    const mean = calculateMean(values);
-    const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
-    const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
-    return Math.sqrt(variance);
-}
-
-// One-hot encode a value
-function oneHotEncode(value, categories) {
-    if (!categories || categories.length === 0) return [];
-    
-    const encoding = new Array(categories.length).fill(0);
-    const index = categories.indexOf(value);
-    if (index !== -1) {
-        encoding[index] = 1;
-    }
-    return encoding;
-}
-
-// [Rest of the functions remain the same as previous version: createModel, trainModel, updateMetrics, plotROC, predict, createPredictionTable, exportResults, toggleVisor, recreateVisualizations]
-
-// Create the model - UPDATED VERSION
+// Create the model
 function createModel() {
     if (!preprocessedTrainData) {
         alert('Please preprocess data first.');
@@ -1078,7 +946,6 @@ function createModel() {
         metrics: ['accuracy']
     });
     
-    // UPDATED MODEL SUMMARY
     const summaryDiv = document.getElementById('model-summary');
     summaryDiv.innerHTML = '<h3>Vehicle Insurance Cross-Selling Model</h3>';
     summaryDiv.innerHTML += `
@@ -1092,100 +959,7 @@ function createModel() {
     document.getElementById('train-btn').disabled = false;
 }
 
-// Helper function for oversampling minority class
-// IMPROVED oversampling with synthetic samples
-async function oversampleMinorityClass(features, labels, multiplier = 2) { // Уменьшили с 3 до 2
-    const featuresArray = await features.array();
-    const labelsArray = await labels.array();
-    
-    const minorityFeatures = [];
-    const minorityLabels = [];
-    const majorityFeatures = [];
-    const majorityLabels = [];
-    
-    // Разделяем на majority и minority классы
-    for (let i = 0; i < labelsArray.length; i++) {
-        if (labelsArray[i] === 1) {
-            minorityFeatures.push(featuresArray[i]);
-            minorityLabels.push(1);
-        } else {
-            majorityFeatures.push(featuresArray[i]);
-            majorityLabels.push(0);
-        }
-    }
-    
-    console.log(`Minority class: ${minorityFeatures.length} samples`);
-    console.log(`Majority class: ${majorityFeatures.length} samples`);
-    
-    // Увеличиваем minority класс с SYNTHETIC SAMPLES
-    const oversampledMinorityFeatures = [];
-    const oversampledMinorityLabels = [];
-    
-    // Сначала добавим оригинальные samples
-    oversampledMinorityFeatures.push(...minorityFeatures);
-    oversampledMinorityLabels.push(...minorityLabels);
-    
-    // Затем добавим synthetic samples
-    const neededSamples = minorityFeatures.length * (multiplier - 1);
-    for (let i = 0; i < neededSamples; i++) {
-        const randomIndex = Math.floor(Math.random() * minorityFeatures.length);
-        const originalFeatures = minorityFeatures[randomIndex];
-        
-        // Создаем synthetic sample с небольшими вариациями
-        const syntheticFeatures = createSyntheticSample(originalFeatures, 0.05); // 5% вариация
-        
-        oversampledMinorityFeatures.push(syntheticFeatures);
-        oversampledMinorityLabels.push(1);
-    }
-    
-    // Объединяем обратно
-    const balancedFeatures = [...majorityFeatures, ...oversampledMinorityFeatures];
-    const balancedLabels = [...majorityLabels, ...oversampledMinorityLabels];
-    
-    // Перемешиваем
-    const shuffled = shuffleArrays(balancedFeatures, balancedLabels);
-    
-    console.log(`After oversampling - total: ${shuffled.features.length} samples`);
-    console.log(`Synthetic samples created: ${neededSamples}`);
-    
-    return {
-        features: tf.tensor2d(shuffled.features),
-        labels: tf.tensor1d(shuffled.labels)
-    };
-}
-
-// Функция для создания synthetic samples - ДОБАВЬТЕ ЭТУ ФУНКЦИЮ
-function createSyntheticSample(features, variation = 0.05) {
-    return features.map(f => {
-        // Добавляем небольшой случайный шум, но избегаем изменения бинарных фичей
-        const isBinary = f === 0 || f === 1;
-        if (isBinary) {
-            // Для бинарных фичей оставляем как есть или с очень малой вероятностью меняем
-            return Math.random() < 0.02 ? (1 - f) : f;
-        } else {
-            // Для числовых фичей добавляем небольшой шум
-            return f + (Math.random() - 0.5) * variation * Math.abs(f);
-        }
-    });
-}
-
-// Helper function to shuffle arrays
-function shuffleArrays(features, labels) {
-    const combined = features.map((f, i) => ({ feature: f, label: labels[i] }));
-    
-    // Fisher-Yates shuffle
-    for (let i = combined.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [combined[i], combined[j]] = [combined[j], combined[i]];
-    }
-    
-    return {
-        features: combined.map(item => item.feature),
-        labels: combined.map(item => item.label)
-    };
-}
 // Train the model
-// Train the model - IMPROVED VERSION WITH OVERSAMPLING
 async function trainModel() {
     if (!model || !preprocessedTrainData) {
         alert('Please create model first.');
@@ -1209,74 +983,54 @@ async function trainModel() {
         validationData = valFeatures;
         validationLabels = valLabels;
         
-        const epochs = parseInt(document.getElementById('epochs').value);
+        const epochs = 50;
         
-        // УПРОЩЕННЫЕ CLASS WEIGHTS
+        // Class weights
         const labelsArray = await trainLabels.data();
         const positiveCount = labelsArray.filter(label => label === 1).length;
         const negativeCount = labelsArray.length - positiveCount;
         
-        // Более консервативные веса
-        const positiveWeight = Math.min(negativeCount / positiveCount, 3); // Макс 3x вместо 5x
-        
-        console.log('Class distribution:', {
-            positive: positiveCount,
-            negative: negativeCount,
-            positiveWeight: positiveWeight.toFixed(2)
-        });
+        const positiveWeight = Math.min(negativeCount / positiveCount, 3);
         
         const classWeight = { 
             0: 1, 
             1: positiveWeight
         };
 
-        // 🔥 EARLY STOPPING VARIABLES
+        // Early stopping variables
         let bestValLoss = Infinity;
-        let patience = 5; // Сколько эпох ждать ухудшения
+        let patience = 5;
         let patienceCounter = 0;
         let bestWeights = null;
 
-        // УПРОЩЕННАЯ ТРЕНИРОВКА С EARLY STOPPING
         trainingHistory = await model.fit(trainFeatures, trainLabels, {
             epochs: epochs,
             batchSize: 32,
             validationData: [valFeatures, valLabels],
             classWeight: classWeight,
             callbacks: {
-                onEpochBegin: async (epoch, logs) => {
-                    // Сохраняем лучшие веса в начале каждой эпохи
-                    if (epoch === 0) {
-                        bestWeights = model.getWeights();
-                    }
-                },
                 onEpochEnd: async (epoch, logs) => {
                     const status = `Epoch ${epoch + 1}/${epochs} - loss: ${logs.loss.toFixed(4)}, acc: ${logs.acc.toFixed(4)}, val_loss: ${logs.val_loss.toFixed(4)}, val_acc: ${logs.val_acc.toFixed(4)}`;
                     
-                    // 🔥 EARLY STOPPING LOGIC
                     if (logs.val_loss < bestValLoss) {
-                        bestValLoss = logs.valLoss;
+                        bestValLoss = logs.val_loss;
                         patienceCounter = 0;
-                        // Сохраняем лучшие веса
                         bestWeights = model.getWeights();
                         statusDiv.innerHTML = status + ' ✅ (Best val_loss)';
                     } else {
                         patienceCounter++;
                         statusDiv.innerHTML = status + ` ⚠️ (Patience: ${patienceCounter}/${patience})`;
                         
-                        // Если терпение исчерпано - останавливаем training
                         if (patienceCounter >= patience) {
                             console.log(`Early stopping triggered at epoch ${epoch + 1}`);
                             model.stopTraining = true;
                             
-                            // Восстанавливаем лучшие веса
                             if (bestWeights) {
                                 model.setWeights(bestWeights);
                                 console.log('Restored best model weights');
                             }
                         }
                     }
-                    
-                    console.log(status);
                 },
                 onTrainEnd: () => {
                     statusDiv.innerHTML += '<p style="color: green;">Training completed!</p>';
@@ -1284,7 +1038,10 @@ async function trainModel() {
                         statusDiv.innerHTML += '<p style="color: orange;">Early stopping was triggered</p>';
                     }
                     
-                    // Автоматически найти оптимальный threshold
+                    // Save the trained model for business mode
+                    trainedModel = model;
+                    updateModelStatus();
+                    
                     setTimeout(() => {
                         validationPredictions = model.predict(validationData);
                         updateMetrics();
@@ -1293,7 +1050,7 @@ async function trainModel() {
             }
         });
         
-        // Включаем UI элементы
+        // Enable UI elements
         document.getElementById('threshold-slider').disabled = false;
         document.getElementById('threshold-slider').addEventListener('input', updateMetrics);
         document.getElementById('predict-btn').disabled = false;
@@ -1302,50 +1059,6 @@ async function trainModel() {
         console.error('Error during training:', error);
         statusDiv.innerHTML = `<p style="color: red;">Error during training: ${error.message}</p>`;
     }
-}
-
-async function findOptimalThreshold() {
-    if (!validationPredictions || !validationLabels) return;
-    
-    const predVals = await validationPredictions.array();
-    const trueVals = await validationLabels.array();
-    
-    let bestF1 = 0;
-    let bestThreshold = 0.5;
-    
-    // Test different thresholds
-    for (let threshold = 0.1; threshold <= 0.9; threshold += 0.05) {
-        let tp = 0, tn = 0, fp = 0, fn = 0;
-        
-        for (let i = 0; i < predVals.length; i++) {
-            const prediction = predVals[i] >= threshold ? 1 : 0;
-            const actual = trueVals[i];
-            
-            if (prediction === 1 && actual === 1) tp++;
-            else if (prediction === 0 && actual === 0) tn++;
-            else if (prediction === 1 && actual === 0) fp++;
-            else if (prediction === 0 && actual === 1) fn++;
-        }
-        
-        const precision = tp / (tp + fp) || 0;
-        const recall = tp / (tp + fn) || 0;
-        const f1 = 2 * (precision * recall) / (precision + recall) || 0;
-        
-        if (f1 > bestF1) {
-            bestF1 = f1;
-            bestThreshold = threshold;
-        }
-    }
-    
-    console.log('Optimal threshold for F1 score:', bestThreshold.toFixed(2), 'F1:', bestF1.toFixed(4));
-    return bestThreshold;
-}
-
-// Call this after training
-async function enhanceModelFurther() {
-    const optimalThreshold = await findOptimalThreshold();
-    document.getElementById('threshold-slider').value = optimalThreshold;
-    updateMetrics();
 }
 
 // Update metrics based on threshold
@@ -1411,10 +1124,7 @@ async function updateMetrics() {
         const f1 = 2 * (precision * recall) / (precision + recall) || 0;
         const accuracy = (tp + tn) / total || 0;
         
-        // Specificity (True Negative Rate)
         const specificity = tn / (tn + fp) || 0;
-        
-        // Balanced Accuracy
         const balancedAccuracy = (recall + specificity) / 2;
         
         const metricsDiv = document.getElementById('performance-metrics');
@@ -1427,92 +1137,13 @@ async function updateMetrics() {
                 <p><strong>Recall (Sensitivity):</strong> ${recall.toFixed(4)}</p>
                 <p><strong>Specificity:</strong> ${specificity.toFixed(4)}</p>
                 <p><strong>F1 Score:</strong> ${f1.toFixed(4)}</p>
-                <p><strong>Optimal Threshold:</strong> ~0.3-0.4 for imbalanced data</p>
             </div>
         `;
-        
-        // Enhanced ROC with AUC
-        await plotROC(trueVals, predVals);
         
     } catch (error) {
         console.error('Error updating enhanced metrics:', error);
     }
 }
-
-// Plot ROC curve
-async function plotROC(trueLabels, predictions) {
-    try {
-        const thresholds = Array.from({ length: 100 }, (_, i) => i / 100);
-        const rocData = [];
-        
-        thresholds.forEach(threshold => {
-            let tp = 0, fn = 0, fp = 0, tn = 0;
-            
-            for (let i = 0; i < predictions.length; i++) {
-                const prediction = predictions[i] >= threshold ? 1 : 0;
-                const actual = trueLabels[i];
-                
-                if (actual === 1) {
-                    if (prediction === 1) tp++;
-                    else fn++;
-                } else {
-                    if (prediction === 1) fp++;
-                    else tn++;
-                }
-            }
-            
-            const tpr = tp / (tp + fn) || 0;  // True Positive Rate
-            const fpr = fp / (fp + tn) || 0;  // False Positive Rate
-            
-            rocData.push({ threshold, fpr, tpr });
-        });
-        
-        // FIXED AUC calculation (trapezoidal rule)
-        let auc = 0;
-        rocData.sort((a, b) => a.fpr - b.fpr); // Sort by FPR
-        
-        for (let i = 1; i < rocData.length; i++) {
-            const width = rocData[i].fpr - rocData[i-1].fpr;
-            const avgHeight = (rocData[i].tpr + rocData[i-1].tpr) / 2;
-            auc += width * avgHeight;
-        }
-        
-        console.log('AUC calculated:', auc);
-        
-        // Plot ROC curve
-        if (auc >= 0 && auc <= 1) {
-            tfvis.render.linechart(
-                { name: 'ROC Curve', tab: 'Evaluation' },
-                { values: rocData.map(d => ({ x: d.fpr, y: d.tpr })) },
-                { 
-                    xLabel: 'False Positive Rate', 
-                    yLabel: 'True Positive Rate',
-                    series: ['ROC Curve (AUC: ' + auc.toFixed(4) + ')'],
-                    width: 400,
-                    height: 400
-                }
-            );
-            
-            // Update metrics with correct AUC
-            const metricsDiv = document.getElementById('performance-metrics');
-            if (metricsDiv) {
-                const currentHTML = metricsDiv.innerHTML;
-                if (!currentHTML.includes('AUC')) {
-                    metricsDiv.innerHTML = currentHTML.replace(
-                        '</div>', 
-                        `<p><strong>AUC:</strong> ${auc.toFixed(4)}</p></div>`
-                    );
-                }
-            }
-        } else {
-            console.warn('Invalid AUC value:', auc);
-        }
-        
-    } catch (error) {
-        console.error('Error plotting ROC curve:', error);
-    }
-}
-
 
 // Predict on test data
 async function predict() {
@@ -1685,363 +1316,54 @@ async function exportResults() {
     }
 }
 
-// Toggle visor function
-function toggleVisor() {
-    const button = document.getElementById('visor-toggle-btn');
+// ========== HELPER FUNCTIONS ==========
+
+function calculateMedian(values) {
+    if (!values || values.length === 0) return 0;
     
-    if (!trainData) {
-        alert('Charts are not loaded yet. Please click "Inspect Data" first.');
-        return;
+    const sorted = [...values].sort((a, b) => a - b);
+    const half = Math.floor(sorted.length / 2);
+    
+    if (sorted.length % 2 === 0) {
+        return (sorted[half - 1] + sorted[half]) / 2;
     }
     
-    const visorInstance = tfvis.visor();
-    
-    if (visorInstance.isOpen()) {
-        visorInstance.close();
-        button.innerHTML = '<span class="icon">📊</span> Show Charts';
-        button.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    } else {
-        visorInstance.open();
-        recreateVisualizations();
-        button.innerHTML = '<span class="icon">📊</span> Hide Charts';
-        button.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
-    }
+    return sorted[half];
 }
 
-// Recreate visualizations
-function recreateVisualizations() {
-    if (!trainData) return;
-    
-    // Clear existing tabs
-    const visor = tfvis.visor();
-    const tabs = visor.getTabs();
-    tabs.forEach(tab => {
-        visor.removeTab(tab);
-    });
-    
-    createVisualizations();
+function calculateMean(values) {
+    if (!values || values.length === 0) return 0;
+    return values.reduce((sum, val) => sum + val, 0) / values.length;
 }
 
-// Initialize the application
-document.addEventListener('DOMContentLoaded', function() {
-    // Close visor on page load
-    if (tfvis.visor().isOpen()) {
-        tfvis.visor().close();
-    }
+function calculateStdDev(values) {
+    if (!values || values.length === 0) return 0;
     
-    console.log('Health Insurance Prediction App initialized');
-});
-
-function resetModelSession() {
-    console.log('Resetting model session...');
-    
-    // Dispose of tensors to free memory
-    if (validationPredictions) {
-        validationPredictions.dispose();
-        validationPredictions = null;
-    }
-    if (validationData) {
-        validationData.dispose();
-        validationData = null;
-    }
-    if (validationLabels) {
-        validationLabels.dispose();
-        validationLabels = null;
-    }
-    
-    // Clear UI
-    document.getElementById('confusion-matrix').innerHTML = '';
-    document.getElementById('performance-metrics').innerHTML = '';
-    document.getElementById('threshold-slider').value = 0.5;
-    document.getElementById('threshold-value').textContent = '0.50';
-    
-    console.log('Model session reset complete');
+    const mean = calculateMean(values);
+    const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
+    const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
+    return Math.sqrt(variance);
 }
 
-const APP_MODE = {
-    TRAINING: 'training',
-    PREDICTION: 'prediction'
-};
-
-let currentMode = APP_MODE.TRAINING;
-let trainedModel = null;
-
-// Switch between ML Specialist and Business User modes
-function switchMode(mode) {
-    currentMode = mode;
+function oneHotEncode(value, categories) {
+    if (!categories || categories.length === 0) return [];
     
-    if (mode === APP_MODE.TRAINING) {
-        // Show all training sections
-        document.querySelectorAll('.card').forEach(card => {
-            card.style.display = 'block';
-        });
-        document.getElementById('ml-mode-btn').style.background = 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)';
-        document.getElementById('business-mode-btn').style.background = '#6c757d';
-        document.getElementById('mode-indicator').textContent = 'Current Mode: ML Specialist';
-        document.getElementById('mode-indicator').style.color = '#007bff';
-    } else {
-        // Business User Mode - hide training sections, show only prediction
-        document.querySelectorAll('.card').forEach(card => {
-            const cardTitle = card.querySelector('h2');
-            if (cardTitle && (
-                cardTitle.textContent.includes('Data Upload') ||
-                cardTitle.textContent.includes('Data Exploration') ||
-                cardTitle.textContent.includes('Data Preprocessing') ||
-                cardTitle.textContent.includes('Model Configuration') ||
-                cardTitle.textContent.includes('Model Training') ||
-                cardTitle.textContent.includes('Model Evaluation') ||
-                cardTitle.textContent.includes('Prediction') ||
-                cardTitle.textContent.includes('Export Results')
-            )) {
-                card.style.display = 'none';
-            }
-        });
-        
-        // Show single prediction card
-        const singlePredCard = document.querySelector('.card h2');
-        if (singlePredCard && singlePredCard.textContent.includes('Single Customer Prediction')) {
-            singlePredCard.closest('.card').style.display = 'block';
-        }
-        
-        document.getElementById('ml-mode-btn').style.background = '#6c757d';
-        document.getElementById('business-mode-btn').style.background = 'linear-gradient(135deg, #28a745 0%, #1e7e34 100%)';
-        document.getElementById('mode-indicator').textContent = 'Current Mode: Business User';
-        document.getElementById('mode-indicator').style.color = '#28a745';
-        
-        if (!trainedModel) {
-            alert('No trained model available. Please train the model in ML Specialist mode first.');
-            switchMode(APP_MODE.TRAINING);
-            return;
-        }
+    const encoding = new Array(categories.length).fill(0);
+    const index = categories.indexOf(value);
+    if (index !== -1) {
+        encoding[index] = 1;
     }
-    updateModelStatus();
+    return encoding;
 }
-
-// Update model status indicator
-function updateModelStatus() {
-    const statusElement = document.getElementById('model-status');
-    if (trainedModel) {
-        statusElement.innerHTML = '🟢 Model Ready for Predictions';
-        statusElement.style.color = 'green';
-    } else {
-        statusElement.innerHTML = '🔴 No Model Available - Train First';
-        statusElement.style.color = '#dc3545';
-    }
-}
-
-// Enhanced Business Insights
-function generateBusinessInsights() {
-    if (!trainData || trainData.length === 0) {
-        console.log('No data available for business insights');
-        return;
-    }
-    
-    const insightsDiv = document.getElementById('business-insights');
-    if (!insightsDiv) {
-        console.error('Business insights div not found');
-        return;
-    }
-    
-    insightsDiv.innerHTML = '<h3>📊 Business Insights & Customer Analysis</h3>';
-    
-    // 1. Age Analysis
-    const ages = trainData.map(row => row.Age).filter(age => age !== null && !isNaN(age));
-    const avgAge = calculateMean(ages);
-    const youngCustomers = trainData.filter(row => row.Age < 30).length;
-    const youngInterestRate = youngCustomers > 0 ? 
-        (trainData.filter(row => row.Age < 30 && row.Response === 1).length / youngCustomers * 100) : 0;
-    
-    // 2. Premium Analysis
-    const premiums = trainData.map(row => row.Annual_Premium).filter(p => p !== null && !isNaN(p));
-    const avgPremium = calculateMean(premiums);
-    const highPremiumCustomers = trainData.filter(row => row.Annual_Premium > 50000).length;
-    
-    // 3. Vehicle Damage Analysis
-    const damageData = {};
-    trainData.forEach(row => {
-        if (row.Vehicle_Damage && row.Response !== undefined && row.Response !== null) {
-            if (!damageData[row.Vehicle_Damage]) {
-                damageData[row.Vehicle_Damage] = { interested: 0, total: 0 };
-            }
-            damageData[row.Vehicle_Damage].total++;
-            if (row.Response === 1) damageData[row.Vehicle_Damage].interested++;
-        }
-    });
-    
-    // 4. Previously Insured Analysis
-    const insuredData = {};
-    trainData.forEach(row => {
-        if (row.Previously_Insured !== undefined && row.Previously_Insured !== null && row.Response !== undefined) {
-            const key = row.Previously_Insured === 1 ? 'Yes' : 'No';
-            if (!insuredData[key]) {
-                insuredData[key] = { interested: 0, total: 0 };
-            }
-            insuredData[key].total++;
-            if (row.Response === 1) insuredData[key].interested++;
-        }
-    });
-    
-    const totalCustomers = trainData.length;
-    const interestedCustomers = trainData.filter(row => row.Response === 1).length;
-    const overallInterestRate = (interestedCustomers / totalCustomers * 100);
-    
-    insightsDiv.innerHTML += `
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 15px 0;">
-            <h4>🎯 Customer Demographics</h4>
-            <p><strong>Total Customers Analyzed:</strong> ${totalCustomers.toLocaleString()}</p>
-            <p><strong>Average Customer Age:</strong> ${avgAge.toFixed(1)} years</p>
-            <p><strong>Young Customers (<30):</strong> ${youngCustomers} (${(youngCustomers/totalCustomers*100).toFixed(1)}% of portfolio)</p>
-            <p><strong>Young Customer Interest Rate:</strong> ${youngInterestRate.toFixed(1)}%</p>
-            <p><strong>Average Annual Premium:</strong> ₹${avgPremium.toFixed(0)}</p>
-            <p><strong>High-Premium Customers (>₹50k):</strong> ${highPremiumCustomers}</p>
-        </div>
-        
-        <div style="background: #e8f4fd; padding: 20px; border-radius: 10px; margin: 15px 0;">
-            <h4>🚗 Vehicle Risk Analysis</h4>
-            <p><strong>Customers with Vehicle Damage History:</strong> ${damageData['Yes'] ? damageData['Yes'].total : 0}</p>
-            <p><strong>Damage History → Interest Rate:</strong> ${damageData['Yes'] ? (damageData['Yes'].interested/damageData['Yes'].total*100).toFixed(1) : 0}%</p>
-            <p><strong>No Damage History → Interest Rate:</strong> ${damageData['No'] ? (damageData['No'].interested/damageData['No'].total*100).toFixed(1) : 0}%</p>
-            <p><strong>Previously Insured Customers:</strong> ${insuredData['Yes'] ? insuredData['Yes'].total : 0}</p>
-            <p><strong>Previously Insured → Interest Rate:</strong> ${insuredData['Yes'] ? (insuredData['Yes'].interested/insuredData['Yes'].total*100).toFixed(1) : 0}%</p>
-        </div>
-        
-        <div style="background: #fff3cd; padding: 20px; border-radius: 10px; margin: 15px 0;">
-            <h4>📈 Portfolio Insights</h4>
-            <p><strong>Overall Interest Rate:</strong> ${overallInterestRate.toFixed(1)}%</p>
-            <p><strong>Interested Customers:</strong> ${interestedCustomers}</p>
-            <p><strong>Market Potential:</strong> Based on current portfolio, ~${Math.round(interestedCustomers * 0.3)} additional policies possible with targeted marketing</p>
-            <p><strong>Recommendation:</strong> Focus outreach on customers with vehicle damage history and younger demographics</p>
-        </div>
-    `;
-}
-
-// Single customer prediction
-async function predictSingle() {
-    if (!trainedModel) {
-        alert('Please train the model first in ML Specialist mode or load a pre-trained model.');
-        return;
-    }
-    
-    try {
-        // Collect data from form
-        const age = parseInt(document.getElementById('pred-age').value) || 35;
-        const annualPremium = parseFloat(document.getElementById('pred-premium').value) || 30000;
-        const vintage = parseInt(document.getElementById('pred-vintage').value) || 100;
-        const gender = document.getElementById('pred-gender').value;
-        const drivingLicense = document.getElementById('pred-license').value;
-        const previouslyInsured = document.getElementById('pred-insured').value;
-        const vehicleAge = document.getElementById('pred-vehicle-age').value;
-        const vehicleDamage = document.getElementById('pred-damage').value;
-        
-        // Use training data for standardization (if available)
-        let standardizedAge = age;
-        let standardizedPremium = annualPremium;
-        let standardizedVintage = vintage;
-        
-        if (trainData && trainData.length > 0) {
-            const trainAges = trainData.map(r => r.Age).filter(a => a !== null && !isNaN(a));
-            const trainPremiums = trainData.map(r => r.Annual_Premium).filter(p => p !== null && !isNaN(p));
-            const trainVintages = trainData.map(r => r.Vintage).filter(v => v !== null && !isNaN(v));
-            
-            standardizedAge = (age - calculateMean(trainAges)) / (calculateStdDev(trainAges) || 1);
-            standardizedPremium = (annualPremium - calculateMean(trainPremiums)) / (calculateStdDev(trainPremiums) || 1);
-            standardizedVintage = (vintage - calculateMean(trainVintages)) / (calculateStdDev(trainVintages) || 1);
-        }
-        
-        // Start with numerical features
-        let features = [
-            isNaN(standardizedAge) ? 0 : standardizedAge,
-            isNaN(standardizedPremium) ? 0 : standardizedPremium,
-            0, // Region_Code (default)
-            0, // Policy_Sales_Channel (default)
-            isNaN(standardizedVintage) ? 0 : standardizedVintage
-        ];
-        
-        // One-hot encoding for categorical features
-        const genderOneHot = oneHotEncode(gender, ['Male', 'Female']);
-        const drivingLicenseOneHot = oneHotEncode(drivingLicense, ['1', '0']);
-        const previouslyInsuredOneHot = oneHotEncode(previouslyInsured, ['1', '0']);
-        const vehicleAgeOneHot = oneHotEncode(vehicleAge, ['< 1 Year', '1-2 Year', '> 2 Years']);
-        const vehicleDamageOneHot = oneHotEncode(vehicleDamage, ['Yes', 'No']);
-        
-        // Combine all features
-        const allFeatures = features.concat(
-            genderOneHot, 
-            drivingLicenseOneHot, 
-            previouslyInsuredOneHot, 
-            vehicleAgeOneHot, 
-            vehicleDamageOneHot
-        );
-        
-        // Make prediction
-        const inputTensor = tf.tensor2d([allFeatures]);
-        const prediction = trainedModel.predict(inputTensor);
-        const probability = (await prediction.data())[0];
-        
-        // Show result
-        const resultDiv = document.getElementById('single-result');
-        const threshold = parseFloat(document.getElementById('threshold-slider')?.value || 0.5);
-        const isInterested = probability >= threshold;
-        
-        resultDiv.style.display = 'block';
-        resultDiv.style.background = isInterested ? '#d4edda' : '#f8d7da';
-        resultDiv.style.color = isInterested ? '#155724' : '#721c24';
-        resultDiv.style.borderLeft = isInterested ? '4px solid #28a745' : '4px solid #dc3545';
-        
-        resultDiv.innerHTML = `
-            <h4>🎯 Prediction Result</h4>
-            <p><strong>Interest Probability:</strong> <span style="font-size: 1.2em; font-weight: bold;">${(probability * 100).toFixed(1)}%</span></p>
-            <p><strong>Prediction:</strong> <span style="font-size: 1.1em; font-weight: bold;">${isInterested ? '✅ INTERESTED' : '❌ NOT INTERESTED'}</span></p>
-            <p><strong>Confidence Level:</strong> ${probability >= 0.7 ? 'High' : probability >= 0.4 ? 'Medium' : 'Low'}</p>
-            <p><strong>Recommended Action:</strong> ${isInterested ? 
-                '🎯 Prioritize for targeted marketing campaign' : 
-                '📧 Include in general communication'}</p>
-            ${isInterested ? '<p><em>This customer shows strong interest in vehicle insurance</em></p>' : 
-                            '<p><em>Consider other insurance products for this customer</em></p>'}
-        `;
-        
-        // Clean up tensors
-        inputTensor.dispose();
-        prediction.dispose();
-        
-    } catch (error) {
-        console.error('Error in single prediction:', error);
-        const resultDiv = document.getElementById('single-result');
-        resultDiv.style.display = 'block';
-        resultDiv.style.background = '#fff5f5';
-        resultDiv.style.color = '#721c24';
-        resultDiv.innerHTML = `
-            <h4>❌ Prediction Error</h4>
-            <p>Error making prediction: ${error.message}</p>
-            <p>Please ensure the model is properly trained in ML Specialist mode.</p>
-        `;
-    }
-}
-
-// Update inspectData to include business insights
-const originalInspectData = inspectData;
-inspectData = function() {
-    originalInspectData.call(this);
-    generateBusinessInsights();
-};
-
-// Update trainModel to save the trained model
-const originalTrainModel = trainModel;
-trainModel = async function() {
-    await originalTrainModel.call(this);
-    trainedModel = model;
-    updateModelStatus();
-    console.log('Model saved for business predictions');
-};
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Health Insurance Prediction App initialized');
     updateModelStatus();
+    switchMode(APP_MODE.TRAINING); // Start in ML Specialist mode
     
     // Close visor on page load
     if (tfvis.visor().isOpen()) {
         tfvis.visor().close();
     }
 });
-

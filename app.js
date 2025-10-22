@@ -628,7 +628,7 @@ function createModel() {
     
     // Enhanced compilation
     model.compile({
-        optimizer: tf.train.adam(0.001),
+        optimizer: tf.train.adam(0.005),
         loss: 'binaryCrossentropy',
         metrics: ['accuracy'] // Keep it simple for compatibility
     });
@@ -833,6 +833,51 @@ async function trainModel() {
         statusDiv.innerHTML = `<p style="color: red;">Error during training: ${error.message}</p>`;
     }
 }
+
+async function findOptimalThreshold() {
+    if (!validationPredictions || !validationLabels) return;
+    
+    const predVals = await validationPredictions.array();
+    const trueVals = await validationLabels.array();
+    
+    let bestF1 = 0;
+    let bestThreshold = 0.5;
+    
+    // Test different thresholds
+    for (let threshold = 0.1; threshold <= 0.9; threshold += 0.05) {
+        let tp = 0, tn = 0, fp = 0, fn = 0;
+        
+        for (let i = 0; i < predVals.length; i++) {
+            const prediction = predVals[i] >= threshold ? 1 : 0;
+            const actual = trueVals[i];
+            
+            if (prediction === 1 && actual === 1) tp++;
+            else if (prediction === 0 && actual === 0) tn++;
+            else if (prediction === 1 && actual === 0) fp++;
+            else if (prediction === 0 && actual === 1) fn++;
+        }
+        
+        const precision = tp / (tp + fp) || 0;
+        const recall = tp / (tp + fn) || 0;
+        const f1 = 2 * (precision * recall) / (precision + recall) || 0;
+        
+        if (f1 > bestF1) {
+            bestF1 = f1;
+            bestThreshold = threshold;
+        }
+    }
+    
+    console.log('Optimal threshold for F1 score:', bestThreshold.toFixed(2), 'F1:', bestF1.toFixed(4));
+    return bestThreshold;
+}
+
+// Call this after training
+async function enhanceModelFurther() {
+    const optimalThreshold = await findOptimalThreshold();
+    document.getElementById('threshold-slider').value = optimalThreshold;
+    updateMetrics();
+}
+
 // Update metrics based on threshold
 async function updateMetrics() {
     if (!validationPredictions || !validationLabels) return;
@@ -927,8 +972,7 @@ async function updateMetrics() {
 // Plot ROC curve
 async function plotROC(trueLabels, predictions) {
     try {
-        // Calculate TPR and FPR for different thresholds
-        const thresholds = Array.from({ length: 50 }, (_, i) => i / 50);
+        const thresholds = Array.from({ length: 100 }, (_, i) => i / 100);
         const rocData = [];
         
         thresholds.forEach(threshold => {
@@ -947,39 +991,58 @@ async function plotROC(trueLabels, predictions) {
                 }
             }
             
-            const tpr = tp / (tp + fn) || 0;
-            const fpr = fp / (fp + tn) || 0;
+            const tpr = tp / (tp + fn) || 0;  // True Positive Rate
+            const fpr = fp / (fp + tn) || 0;  // False Positive Rate
             
             rocData.push({ threshold, fpr, tpr });
         });
         
-        // Calculate AUC (approximate using trapezoidal rule)
+        // FIXED AUC calculation (trapezoidal rule)
         let auc = 0;
+        rocData.sort((a, b) => a.fpr - b.fpr); // Sort by FPR
+        
         for (let i = 1; i < rocData.length; i++) {
-            auc += (rocData[i].fpr - rocData[i-1].fpr) * (rocData[i].tpr + rocData[i-1].tpr) / 2;
+            const width = rocData[i].fpr - rocData[i-1].fpr;
+            const avgHeight = (rocData[i].tpr + rocData[i-1].tpr) / 2;
+            auc += width * avgHeight;
         }
         
-        // Plot ROC curve
-        tfvis.render.linechart(
-            { name: 'ROC Curve', tab: 'Evaluation' },
-            { values: rocData.map(d => ({ x: d.fpr, y: d.tpr })) },
-            { 
-                xLabel: 'False Positive Rate', 
-                yLabel: 'True Positive Rate',
-                series: ['ROC Curve'],
-                width: 400,
-                height: 400
-            }
-        );
+        console.log('AUC calculated:', auc);
         
-        // Add AUC to performance metrics
-        const metricsDiv = document.getElementById('performance-metrics');
-        metricsDiv.innerHTML += `<p><strong>AUC:</strong> ${auc.toFixed(4)}</p>`;
+        // Plot ROC curve
+        if (auc >= 0 && auc <= 1) {
+            tfvis.render.linechart(
+                { name: 'ROC Curve', tab: 'Evaluation' },
+                { values: rocData.map(d => ({ x: d.fpr, y: d.tpr })) },
+                { 
+                    xLabel: 'False Positive Rate', 
+                    yLabel: 'True Positive Rate',
+                    series: ['ROC Curve (AUC: ' + auc.toFixed(4) + ')'],
+                    width: 400,
+                    height: 400
+                }
+            );
+            
+            // Update metrics with correct AUC
+            const metricsDiv = document.getElementById('performance-metrics');
+            if (metricsDiv) {
+                const currentHTML = metricsDiv.innerHTML;
+                if (!currentHTML.includes('AUC')) {
+                    metricsDiv.innerHTML = currentHTML.replace(
+                        '</div>', 
+                        `<p><strong>AUC:</strong> ${auc.toFixed(4)}</p></div>`
+                    );
+                }
+            }
+        } else {
+            console.warn('Invalid AUC value:', auc);
+        }
         
     } catch (error) {
         console.error('Error plotting ROC curve:', error);
     }
 }
+
 
 // Predict on test data
 async function predict() {

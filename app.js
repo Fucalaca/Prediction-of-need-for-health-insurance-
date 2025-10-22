@@ -419,27 +419,23 @@ function preprocessData() {
 }
 
 // Extract features from a row with imputation and normalization
-function extractFeatures(row, ageMedian, annualPremiumMedian, regionCodeMedian, policyChannelMedian) {
-    // Safe imputation
+function extractSuperFeatures(row, ageMedian, annualPremiumMedian, regionCodeMedian, policyChannelMedian) {
+    // Базовые фичи
     const age = (row.Age !== null && !isNaN(row.Age)) ? row.Age : ageMedian;
     const annualPremium = (row.Annual_Premium !== null && !isNaN(row.Annual_Premium)) ? row.Annual_Premium : annualPremiumMedian;
     const regionCode = (row.Region_Code !== null && !isNaN(row.Region_Code)) ? row.Region_Code : regionCodeMedian;
     const policyChannel = (row.Policy_Sales_Channel !== null && !isNaN(row.Policy_Sales_Channel)) ? row.Policy_Sales_Channel : policyChannelMedian;
     const vintage = (row.Vintage !== null && !isNaN(row.Vintage)) ? row.Vintage : 0;
     
-    // Get training data for standardization
+    // Стандартизация
     const trainAges = trainData.map(r => r.Age).filter(a => a !== null && !isNaN(a));
     const trainPremiums = trainData.map(r => r.Annual_Premium).filter(p => p !== null && !isNaN(p));
-    const trainRegions = trainData.map(r => r.Region_Code).filter(c => c !== null && !isNaN(c));
-    const trainChannels = trainData.map(r => r.Policy_Sales_Channel).filter(c => c !== null && !isNaN(c));
-    const trainVintages = trainData.map(r => r.Vintage).filter(v => v !== null && !isNaN(v));
     
-    // Robust standardization
     const standardizedAge = (age - calculateMean(trainAges)) / (calculateStdDev(trainAges) || 1);
     const standardizedPremium = (annualPremium - calculateMean(trainPremiums)) / (calculateStdDev(trainPremiums) || 1);
-    const standardizedRegion = (regionCode - calculateMean(trainRegions)) / (calculateStdDev(trainRegions) || 1);
-    const standardizedChannel = (policyChannel - calculateMean(trainChannels)) / (calculateStdDev(trainChannels) || 1);
-    const standardizedVintage = (vintage - calculateMean(trainVintages)) / (calculateStdDev(trainVintages) || 1);
+    const standardizedRegion = (regionCode - regionCodeMedian) / (calculateStdDev(trainData.map(r => r.Region_Code).filter(c => c !== null && !isNaN(c))) || 1);
+    const standardizedChannel = (policyChannel - policyChannelMedian) / (calculateStdDev(trainData.map(r => r.Policy_Sales_Channel).filter(c => c !== null && !isNaN(c))) || 1);
+    const standardizedVintage = (vintage - calculateMean(trainData.map(r => r.Vintage).filter(v => v !== null && !isNaN(v)))) / (calculateStdDev(trainData.map(r => r.Vintage).filter(v => v !== null && !isNaN(v))) || 1);
     
     // One-hot encoding
     const genderOneHot = oneHotEncode(row.Gender, ['Male', 'Female']);
@@ -448,7 +444,6 @@ function extractFeatures(row, ageMedian, annualPremiumMedian, regionCodeMedian, 
     const vehicleAgeOneHot = oneHotEncode(row.Vehicle_Age, ['< 1 Year', '1-2 Year', '> 2 Years']);
     const vehicleDamageOneHot = oneHotEncode(row.Vehicle_Damage, ['Yes', 'No']);
     
-    // Start with numerical features
     let features = [
         isNaN(standardizedAge) ? 0 : standardizedAge,
         isNaN(standardizedPremium) ? 0 : standardizedPremium,
@@ -457,7 +452,6 @@ function extractFeatures(row, ageMedian, annualPremiumMedian, regionCodeMedian, 
         isNaN(standardizedVintage) ? 0 : standardizedVintage
     ];
     
-    // Add one-hot encoded features
     features = features.concat(
         genderOneHot, 
         drivingLicenseOneHot, 
@@ -466,31 +460,40 @@ function extractFeatures(row, ageMedian, annualPremiumMedian, regionCodeMedian, 
         vehicleDamageOneHot
     );
     
-    // CRITICAL: Add domain-specific engineered features
-    // 1. Age groups (insurance relevance)
-    const ageGroup = age < 25 ? 0 : age < 40 ? 1 : age < 60 ? 2 : 3;
-    const ageGroupOneHot = oneHotEncode(ageGroup.toString(), ['0', '1', '2', '3']);
-    features = features.concat(ageGroupOneHot);
+    // === СУПЕР-ФИЧИ ДЛЯ 80%+ ACCURACY ===
     
-    // 2. Premium to age ratio (affordability indicator)
-    const premiumToAgeRatio = annualPremium / (age || 1);
-    features.push(isNaN(premiumToAgeRatio) ? 0 : premiumToAgeRatio / 1000);
+    // 1. КРИТИЧЕСКИЕ ВЗАИМОДЕЙСТВИЯ
+    const ageVehicleInteraction = (age / 100) * (row.Vehicle_Age === '> 2 Years' ? 1 : 0.5);
+    features.push(ageVehicleInteraction);
     
-    // 3. Risk profile: Young drivers with vehicle damage
-    const youngRiskyDriver = (age < 30 && row.Vehicle_Damage === 'Yes') ? 1 : 0;
-    features.push(youngRiskyDriver);
+    // 2. ПРЕМИУМ-ПОВЕДЕНЧЕСКИЕ ПАТТЕРНЫ
+    const premiumAgeRatio = annualPremium / Math.max(age, 1);
+    features.push(premiumAgeRatio / 1000);
     
-    // 4. Previously insured but no current insurance (potential customer)
-    const lapsedCustomer = (row.Previously_Insured === 1 && row.Vehicle_Damage === 'Yes') ? 1 : 0;
-    features.push(lapsedCustomer);
+    // 3. РИСК-ПРОФИЛЬ КЛИЕНТА (самая важная!)
+    let riskScore = 0;
+    if (row.Vehicle_Damage === 'Yes') riskScore += 0.3;
+    if (row.Vehicle_Age === '> 2 Years') riskScore += 0.2;
+    if (age < 25) riskScore += 0.2;
+    if (row.Previously_Insured === 0) riskScore += 0.3;
+    features.push(riskScore);
     
-    // 5. Premium segments
-    const premiumSegment = annualPremium < 20000 ? 0 : annualPremium < 50000 ? 1 : 2;
-    const premiumSegmentOneHot = oneHotEncode(premiumSegment.toString(), ['0', '1', '2']);
-    features = features.concat(premiumSegmentOneHot);
+    // 4. СЕГМЕНТАЦИЯ ПО ЦЕННОСТИ КЛИЕНТА
+    const customerValue = (annualPremium / 1000) + (vintage / 365);
+    features.push(customerValue);
     
+    // 5. КАНАЛЬНЫЕ ПРЕДПОЧТЕНИЯ
+    const preferredChannel = policyChannel === 26 ? 1 : 0; // Самый эффективный канал
+    features.push(preferredChannel);
+    
+    // 6. ВОЗРАСТНОЙ РИСК
+    const ageRisk = Math.max(0, (age - 40) / 60); // Пик риска около 40 лет
+    features.push(ageRisk);
+    
+    console.log('Super features created. Total:', features.length);
     return features;
 }
+
 
 // Calculate median of an array
 function calculateMedian(values) {
@@ -547,6 +550,14 @@ function createModel() {
     const modelType = document.getElementById('model-type').value;
     
     console.log('Creating enhanced model with input shape:', inputShape);
+    
+    const modelType = document.getElementById('model-type').value;
+    
+    if (modelType === 'super') {
+        createSuperModel(); // Используем супер-версию
+        return;
+    }
+    
     
     // Clear any existing model
     if (model) {
@@ -1260,4 +1271,182 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('Health Insurance Prediction App initialized');
-});
+}
+async function createSuperModel() {
+    if (!preprocessedTrainData) {
+        alert('Please preprocess data first.');
+        return;
+    }
+    
+    console.log('🚀 Creating SUPER ENSEMBLE model...');
+    
+    const inputShape = preprocessedTrainData.features.shape[1];
+    
+    // Сбрасываем предыдущую модель
+    if (model) {
+        model.dispose();
+    }
+
+    // === АРХИТЕКТУРА СУПЕР-МОДЕЛИ ===
+    model = tf.sequential();
+    
+    // 1. ШИРОКАЯ часть (фичи взаимодействия)
+    model.add(tf.layers.dense({
+        units: 256,  // УВЕЛИЧИЛИ в 2 раза!
+        activation: 'relu',
+        inputShape: [inputShape],
+        kernelInitializer: 'heNormal'
+    }));
+    
+    model.add(tf.layers.batchNormalization());
+    model.add(tf.layers.dropout({rate: 0.4}));
+    
+    // 2. ГЛУБОКАЯ часть (сложные паттерны)
+    model.add(tf.layers.dense({
+        units: 128,
+        activation: 'relu',
+        kernelRegularizer: tf.regularizers.l2({l2: 0.0001}) // ЛЕГКАЯ регуляризация
+    }));
+    
+    model.add(tf.layers.batchNormalization());
+    model.add(tf.layers.dropout({rate: 0.3}));
+    
+    model.add(tf.layers.dense({
+        units: 64,
+        activation: 'relu'
+    }));
+    
+    model.add(tf.layers.dropout({rate: 0.2}));
+    
+    // 3. УЗКАЯ специализированная часть
+    model.add(tf.layers.dense({
+        units: 32,
+        activation: 'relu'
+    }));
+    
+    // ФИНАЛЬНЫЙ СЛОЙ
+    model.add(tf.layers.dense({
+        units: 1,
+        activation: 'sigmoid'
+    }));
+    
+    // === СУПЕР-КОМПИЛЯЦИЯ ===
+    model.compile({
+        optimizer: tf.train.adam(0.001), // Возвращаем оптимальный LR
+        loss: 'binaryCrossentropy',
+        metrics: ['accuracy']
+    });
+    
+    const summaryDiv = document.getElementById('model-summary');
+    summaryDiv.innerHTML = `
+        <h3>🚀 SUPER ENSEMBLE MODEL</h3>
+        <p><strong>Архитектура:</strong> Wide & Deep Network</p>
+        <p><strong>Стратегия:</strong> Объединение 3 подходов в одной модели</p>
+        <p><strong>Параметры:</strong> ${model.countParams().toLocaleString()}</p>
+        <p><strong>Цель:</strong> Accuracy > 80%</p>
+        <div style="background: #e3f2fd; padding: 10px; border-radius: 5px; margin: 10px 0;">
+            <strong>🎯 Фокус на:</strong> Баланс между запоминанием и обобщением
+        </div>
+    `;
+    
+    document.getElementById('train-btn').disabled = false;
+}
+async function trainSuperModel() {
+    if (!model || !preprocessedTrainData) {
+        alert('Please create model first.');
+        return;
+    }
+    
+    const statusDiv = document.getElementById('training-status');
+    statusDiv.innerHTML = '🚀 Training SUPER MODEL with adaptive strategy...';
+    
+    try {
+        // Сброс предыдущих данных
+        resetModelSession();
+        
+        // Разделение данных
+        const splitIndex = Math.floor(preprocessedTrainData.features.shape[0] * 0.8);
+        const trainFeatures = preprocessedTrainData.features.slice(0, splitIndex);
+        const trainLabels = preprocessedTrainData.labels.slice(0, splitIndex);
+        validationData = preprocessedTrainData.features.slice(splitIndex);
+        validationLabels = preprocessedTrainData.labels.slice(splitIndex);
+        
+        const epochs = 80; // УВЕЛИЧИВАЕМ для сложной модели
+        
+        // РАСШИРЕННЫЕ ВЕСА КЛАССОВ
+        const labelsArray = await trainLabels.data();
+        const positiveCount = labelsArray.filter(label => label === 1).length;
+        const negativeCount = labelsArray.length - positiveCount;
+        
+        const classWeight = { 
+            0: 1, 
+            1: Math.min(negativeCount / positiveCount, 4) // Более агрессивно
+        };
+        
+        console.log('Super training started. Class weights:', classWeight);
+
+        // АДАПТИВНОЕ ОБУЧЕНИЕ
+        trainingHistory = await model.fit(trainFeatures, trainLabels, {
+            epochs: epochs,
+            batchSize: 64, // УВЕЛИЧИЛИ batch size
+            validationData: [validationData, validationLabels],
+            classWeight: classWeight,
+            callbacks: {
+                onEpochEnd: async (epoch, logs) => {
+                    const progress = ((epoch + 1) / epochs) * 100;
+                    const status = `
+                        <div class="progress-bar"><div class="progress" style="width: ${progress}%"></div></div>
+                        Epoch ${epoch + 1}/${epochs} 
+                        - loss: ${logs.loss.toFixed(4)} 
+                        - acc: <strong>${(logs.acc * 100).toFixed(2)}%</strong>
+                        - val_loss: ${logs.val_loss.toFixed(4)} 
+                        - val_acc: <strong style="color: #2ecc71;">${(logs.val_acc * 100).toFixed(2)}%</strong>
+                    `;
+                    statusDiv.innerHTML = status;
+                    
+                    // АДАПТИВНОЕ ИЗМЕНЕНИЕ LEARNING RATE
+                    if ((epoch + 1) % 25 === 0) {
+                        const currentLr = model.optimizer.learningRate;
+                        const newLr = currentLr * 0.7;
+                        model.optimizer.learningRate = newLr;
+                        console.log(`Adaptive LR reduction: ${currentLr} → ${newLr}`);
+                    }
+                }
+            }
+        });
+        
+        // ФИНАЛЬНЫЕ ПРЕДСКАЗАНИЯ
+        validationPredictions = model.predict(validationData);
+        
+        statusDiv.innerHTML += `<p style="color: #27ae60; font-weight: bold; margin-top: 15px;">
+            ✅ SUPER MODEL Training Completed! Final val_acc: <strong>${(trainingHistory.history.val_acc[trainingHistory.history.val_acc.length-1] * 100).toFixed(2)}%</strong>
+        </p>`;
+        
+        // АВТОМАТИЧЕСКАЯ НАСТРОЙКА
+        document.getElementById('threshold-slider').disabled = false;
+        document.getElementById('threshold-slider').value = 0.4; // Оптимально для imbalance
+        document.getElementById('threshold-value').textContent = '0.40';
+        
+        // Обновляем UI
+        document.getElementById('confusion-matrix').innerHTML = '<p>Calculating super metrics...</p>';
+        document.getElementById('performance-metrics').innerHTML = '<p>Optimizing performance...</p>';
+        
+        // Пересчитываем метрики
+        await updateMetrics();
+        
+        // Ищем оптимальный threshold
+        const optimalThreshold = await findOptimalThreshold();
+        if (optimalThreshold > 0) {
+            document.getElementById('threshold-slider').value = optimalThreshold;
+            document.getElementById('threshold-value').textContent = optimalThreshold.toFixed(2);
+            await updateMetrics();
+        }
+        
+        document.getElementById('predict-btn').disabled = false;
+        
+    } catch (error) {
+        console.error('Super model error:', error);
+        statusDiv.innerHTML = `<p style="color: #e74c3c;">❌ Super model failed: ${error.message}</p>`;
+    }
+}
+);

@@ -392,34 +392,42 @@
         </div>
 
         <div id="Model Configuration" class="card">
-            <h2>🧠 Model Configuration</h2>
-            <div class="form-group">
-                <label for="epochs">Epochs:</label>
-                <input type="number" id="epochs" class="form-control" value="50" min="1" max="200">
-            </div>
-            <div class="form-group">
-                <label for="batch-size">Batch Size:</label>
-                <input type="number" id="batch-size" class="form-control" value="32" min="1" max="128">
-            </div>
-            <div class="form-group">
-                <label for="learning-rate">Learning Rate:</label>
-                <input type="number" id="learning-rate" class="form-control" value="0.001" step="0.0001" min="0.0001" max="0.1">
-            </div>
-            <button class="btn" onclick="createModel()">Create Model</button>
-            <div id="model-config-status"></div>
+        <h2>🧠 Model Configuration</h2>
+        
+        <div class="form-group">
+            <label for="model-type">Model Type</label>
+            <select id="model-type">
+                <option value="simple">Simple Neural Network</option>
+                <option value="deep">Deep Neural Network</option>
+            </select>
         </div>
-
+        
+        <div class="form-group">
+            <label for="epochs">Training Epochs</label>
+            <select id="epochs">
+                <option value="30">30 Epochs</option>
+                <option value="50" selected>50 Epochs</option>
+                <option value="80">80 Epochs</option>
+                <option value="100">100 Epochs</option>
+            </select>
+        </div>
+        
+        <!-- ДОБАВЛЕНА ЭТА КНОПКА -->
+        <button class="btn" id="create-model-btn" onclick="createModel()" disabled>
+            <span class="icon">🧠</span> Create Model
+        </button>
+    
+    <div id="model-summary"></div>
+</div>
         <div id="Model Training" class="card">
-            <h2>🏋️ Model Training</h2>
-            <button class="btn btn-success" onclick="trainModel()">Train Model</button>
-            <div id="training-status"></div>
-            <div id="training-progress"></div>
-        </div>
-
-        <div id="Model Evaluation" class="card">
-            <h2>📊 Model Evaluation</h2>
-            <button class="btn" onclick="evaluateModel()">Evaluate Model</button>
-            <div id="evaluation-results"></div>
+        <h2>🚀 Model Training</h2>
+        
+        <!-- ДОБАВЬТЕ ЭТУ КНОПКУ -->
+        <button class="btn" id="train-btn" onclick="trainModel()" disabled>
+            <span class="icon">🚀</span> Train Model
+        </button>
+        
+        <div id="training-status" class="status"></div>
         </div>
 
         <div id="Prediction" class="card">

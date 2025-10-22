@@ -747,6 +747,7 @@ function createBusinessPredictionTable(results) {
 // ========== ML SPECIALIST FUNCTIONS ==========
 
 // Preprocess the data - OPTIMIZED VERSION
+// Preprocess the data - FIXED VERSION
 function preprocessData() {
     if (!trainData || !testData) {
         alert('Please load data first.');
@@ -754,6 +755,12 @@ function preprocessData() {
     }
     
     const outputDiv = document.getElementById('preprocessing-output');
+    if (!outputDiv) {
+        console.error('preprocessing-output element not found');
+        alert('UI element error: preprocessing-output not found');
+        return;
+    }
+    
     outputDiv.innerHTML = 'Preprocessing data...<br><small>This may take a moment for large datasets</small>';
     
     console.log('Starting preprocessing...');
@@ -763,7 +770,7 @@ function preprocessData() {
     // Use setTimeout to allow UI to update
     setTimeout(() => {
         try {
-            // Calculate imputation values from training data - OPTIMIZED
+            // Calculate imputation values from training data
             console.log('Calculating imputation values...');
             
             const ageValues = trainData.map(row => row.Age).filter(age => age !== null && !isNaN(age));
@@ -780,14 +787,14 @@ function preprocessData() {
                 ageMedian, annualPremiumMedian, regionCodeMedian, policyChannelMedian
             });
             
-            // Preprocess training data in batches to avoid freezing
+            // Preprocess training data
             console.log('Preprocessing training data...');
             preprocessedTrainData = {
                 features: [],
                 labels: []
             };
             
-            const batchSize = 1000; // Process in batches of 1000
+            const batchSize = 1000;
             for (let i = 0; i < trainData.length; i += batchSize) {
                 const batch = trainData.slice(i, i + batchSize);
                 batch.forEach(row => {
@@ -813,31 +820,45 @@ function preprocessData() {
                 });
             }
             
+            console.log('Converting to tensors...');
+
             // Convert to tensors
             preprocessedTrainData.features = tf.tensor2d(preprocessedTrainData.features);
             preprocessedTrainData.labels = tf.tensor1d(preprocessedTrainData.labels);
             
             console.log('Preprocessing completed successfully');
+            console.log('Training features shape:', preprocessedTrainData.features.shape);
+            console.log('Test features count:', preprocessedTestData.features.length);
             
-            outputDiv.innerHTML = `
-                <div style="color: green;">
-                    <p><strong>Preprocessing completed!</strong></p>
-                    <p>Training features shape: ${preprocessedTrainData.features.shape}</p>
-                    <p>Training labels shape: ${preprocessedTrainData.labels.shape}</p>
-                    <p>Test features shape: [${preprocessedTestData.features.length}, ${preprocessedTestData.features[0] ? preprocessedTestData.features[0].length : 0}]</p>
-                </div>
-            `;
+            if (outputDiv) {
+                outputDiv.innerHTML = `
+                    <div style="color: green;">
+                        <p><strong>Preprocessing completed!</strong></p>
+                        <p>Training features shape: ${preprocessedTrainData.features.shape}</p>
+                        <p>Training labels shape: ${preprocessedTrainData.labels.shape}</p>
+                        <p>Test features shape: [${preprocessedTestData.features.length}, ${preprocessedTestData.features[0] ? preprocessedTestData.features[0].length : 0}]</p>
+                    </div>
+                `;
+            }
             
-            // Enable the create model button
-            document.getElementById('create-model-btn').disabled = false;
+            // FIXED: Safe element check for create-model-btn
+            const createModelBtn = document.getElementById('create-model-btn');
+            if (createModelBtn) {
+                createModelBtn.disabled = false;
+                console.log('Create Model button enabled');
+            } else {
+                console.warn('create-model-btn element not found - button not enabled');
+            }
             
         } catch (error) {
             console.error('Error during preprocessing:', error);
-            outputDiv.innerHTML = `<div style="color: red;">
-                <p><strong>Error during preprocessing:</strong></p>
-                <p>${error.message}</p>
-                <p>Check console for details</p>
-            </div>`;
+            if (outputDiv) {
+                outputDiv.innerHTML = `<div style="color: red;">
+                    <p><strong>Error during preprocessing:</strong></p>
+                    <p>${error.message}</p>
+                    <p>Check console for details</p>
+                </div>`;
+            }
         }
     }, 100);
 }

@@ -384,8 +384,11 @@
 
         <div id="Data Preprocessing" class="card">
             <h2>⚙️ Data Preprocessing</h2>
-            <button id="preprocess-btn" class="btn" onclick="preprocessData()" disabled>Preprocess Data</button>
-            <div id="preprocessing-status"></div>
+            <button id="preprocess-btn" class="btn" onclick="preprocessData()" disabled>
+            <span class="icon">⚙️</span> Preprocess Data
+            </button>
+        <!-- ДОБАВЬТЕ ЭТУ СТРОКУ -->
+            <div id="preprocessing-output" class="status"></div>
         </div>
 
         <div id="Model Configuration" class="card">

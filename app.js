@@ -1268,7 +1268,33 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     console.log('Health Insurance Prediction App initialized');
-})
+});
+
+function resetModelSession() {
+    console.log('Resetting model session...');
+    
+    // Dispose of tensors to free memory
+    if (validationPredictions) {
+        validationPredictions.dispose();
+        validationPredictions = null;
+    }
+    if (validationData) {
+        validationData.dispose();
+        validationData = null;
+    }
+    if (validationLabels) {
+        validationLabels.dispose();
+        validationLabels = null;
+    }
+    
+    // Clear UI
+    document.getElementById('confusion-matrix').innerHTML = '';
+    document.getElementById('performance-metrics').innerHTML = '';
+    document.getElementById('threshold-slider').value = 0.5;
+    document.getElementById('threshold-value').textContent = '0.50';
+    
+    console.log('Model session reset complete');
+}
 
 async function createSuperModel() {
     if (!preprocessedTrainData) {
@@ -1349,6 +1375,7 @@ async function createSuperModel() {
     
     document.getElementById('train-btn').disabled = false;
 }
+
 async function trainSuperModel() {
     if (!model || !preprocessedTrainData) {
         alert('Please create model first.');
@@ -1447,4 +1474,3 @@ async function trainSuperModel() {
         statusDiv.innerHTML = `<p style="color: #e74c3c;">❌ Super model failed: ${error.message}</p>`;
     }
 }
-;

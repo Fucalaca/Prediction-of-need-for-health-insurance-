@@ -982,6 +982,7 @@ function createModel() {
 }
 
 // Train the model
+// Train the model (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 async function trainModel() {
     if (!model || !preprocessedTrainData) {
         alert('Please create model first.');
@@ -1053,6 +1054,8 @@ async function trainModel() {
                             }
                         }
                     }
+                    
+                    console.log(status);
                 },
                 onTrainEnd: () => {
                     statusDiv.innerHTML += '<p style="color: green;">Training completed!</p>';
@@ -1064,18 +1067,26 @@ async function trainModel() {
                     trainedModel = model;
                     updateModelStatus();
                     
-                    setTimeout(() => {
-                        validationPredictions = model.predict(validationData);
-                        updateMetrics();
+                    // Make validation predictions for evaluation
+                    setTimeout(async () => {
+                        try {
+                            validationPredictions = model.predict(validationData);
+                            await updateMetrics();
+                            
+                            // Enable prediction button safely
+                            const predictBtn = document.getElementById('predict-btn');
+                            if (predictBtn) {
+                                predictBtn.disabled = false;
+                                console.log('Predict button enabled');
+                            }
+                            
+                        } catch (error) {
+                            console.error('Error in post-training setup:', error);
+                        }
                     }, 500);
                 }
             }
         });
-        
-        // Enable UI elements
-        document.getElementById('threshold-slider').disabled = false;
-        document.getElementById('threshold-slider').addEventListener('input', updateMetrics);
-        document.getElementById('predict-btn').disabled = false;
         
     } catch (error) {
         console.error('Error during training:', error);
@@ -1389,3 +1400,168 @@ document.addEventListener('DOMContentLoaded', function() {
         tfvis.visor().close();
     }
 });
+
+async function evaluateModel() {
+    if (!model || !validationData || !validationLabels) {
+        alert('Please train the model first.');
+        return;
+    }
+    
+    const resultsDiv = document.getElementById('evaluation-results');
+    resultsDiv.innerHTML = 'Evaluating model...';
+    
+    try {
+        // Get predictions
+        const predictions = model.predict(validationData);
+        const predArray = await predictions.array();
+        const labelsArray = await validationLabels.array();
+        
+        // Calculate metrics with default threshold
+        const threshold = 0.5;
+        let tp = 0, fp = 0, tn = 0, fn = 0;
+        
+        for (let i = 0; i < predArray.length; i++) {
+            const prediction = predArray[i] >= threshold ? 1 : 0;
+            const actual = labelsArray[i];
+            
+            if (prediction === 1 && actual === 1) tp++;
+            else if (prediction === 1 && actual === 0) fp++;
+            else if (prediction === 0 && actual === 0) tn++;
+            else if (prediction === 0 && actual === 1) fn++;
+        }
+        
+        const accuracy = (tp + tn) / (tp + tn + fp + fn);
+        const precision = tp / (tp + fp) || 0;
+        const recall = tp / (tp + fn) || 0;
+        const f1 = 2 * (precision * recall) / (precision + recall) || 0;
+        
+        resultsDiv.innerHTML = `
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px;">
+                <h3>Model Evaluation Results</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+                    <div>
+                        <h4>Performance Metrics</h4>
+                        <p><strong>Accuracy:</strong> ${(accuracy * 100).toFixed(2)}%</p>
+                        <p><strong>Precision:</strong> ${precision.toFixed(4)}</p>
+                        <p><strong>Recall:</strong> ${recall.toFixed(4)}</p>
+                        <p><strong>F1-Score:</strong> ${f1.toFixed(4)}</p>
+                    </div>
+                    <div>
+                        <h4>Confusion Matrix</h4>
+                        <table style="border-collapse: collapse; width: 100%;">
+                            <tr>
+                                <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #e8f5e8;">TN: ${tn}</td>
+                                <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #ffe8e8;">FP: ${fp}</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #ffe8e8;">FN: ${fn}</td>
+                                <td style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #e8f5e8;">TP: ${tp}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error during evaluation:', error);
+        resultsDiv.innerHTML = `<div style="color: red;">Error during evaluation: ${error.message}</div>`;
+    }
+}
+
+// Update metrics function (исправленная)
+async function updateMetrics() {
+    if (!validationPredictions || !validationLabels) return;
+    
+    try {
+        const predVals = await validationPredictions.array();
+        const trueVals = await validationLabels.array();
+        
+        // Use default threshold since slider doesn't exist
+        const threshold = 0.5;
+        
+        let tp = 0, tn = 0, fp = 0, fn = 0;
+        
+        for (let i = 0; i < predVals.length; i++) {
+            const prediction = predVals[i] >= threshold ? 1 : 0;
+            const actual = trueVals[i];
+            
+            if (prediction === 1 && actual === 1) tp++;
+            else if (prediction === 0 && actual === 0) tn++;
+            else if (prediction === 1 && actual === 0) fp++;
+            else if (prediction === 0 && actual === 1) fn++;
+        }
+        
+        const precision = tp / (tp + fp) || 0;
+        const recall = tp / (tp + fn) || 0;
+        const f1 = 2 * (precision * recall) / (precision + recall) || 0;
+        const accuracy = (tp + tn) / (tp + tn + fp + fn) || 0;
+        
+        console.log('Model Performance:', {
+            accuracy: (accuracy * 100).toFixed(2) + '%',
+            precision: precision.toFixed(4),
+            recall: recall.toFixed(4),
+            f1: f1.toFixed(4)
+        });
+        
+    } catch (error) {
+        console.error('Error updating metrics:', error);
+    }
+}
+
+// Predict function (исправленная)
+async function predict() {
+    if (!model || !preprocessedTestData) {
+        alert('Please train model and ensure test data is loaded.');
+        return;
+    }
+    
+    const outputDiv = document.getElementById('prediction-results');
+    outputDiv.innerHTML = 'Making predictions...';
+    
+    try {
+        // Convert test features to tensor
+        const testFeatures = tf.tensor2d(preprocessedTestData.features);
+        
+        // Make predictions
+        const predictions = model.predict(testFeatures);
+        const predValues = await predictions.array();
+        
+        // Create prediction results
+        const threshold = 0.5; // Default threshold
+        const results = preprocessedTestData.customerIds.map((id, i) => ({
+            CustomerId: id,
+            Interested: predValues[i] >= threshold ? 1 : 0,
+            Probability: predValues[i]
+        }));
+        
+        // Show first 10 predictions
+        outputDiv.innerHTML = '<h3>Prediction Results (First 10 Rows)</h3>';
+        outputDiv.appendChild(createPredictionTable(results.slice(0, 10)));
+        
+        // Calculate summary statistics
+        const interestedCount = results.filter(r => r.Interested === 1).length;
+        const totalCount = results.length;
+        const interestRate = (interestedCount / totalCount * 100).toFixed(2);
+        
+        outputDiv.innerHTML += `
+            <div style="margin-top: 20px; padding: 15px; background-color: #e9f7ef; border-radius: 5px;">
+                <h4>Prediction Summary</h4>
+                <p>Total Customers: ${totalCount}</p>
+                <p>Predicted Interested: ${interestedCount} (${interestRate}%)</p>
+                <p>Threshold: ${threshold.toFixed(2)}</p>
+            </div>
+        `;
+        
+        // Store predictions for export
+        testPredictions = predictions;
+        
+        // Enable the export button
+        const exportBtn = document.getElementById('export-btn');
+        if (exportBtn) exportBtn.disabled = false;
+        
+    } catch (error) {
+        console.error('Error during prediction:', error);
+        outputDiv.innerHTML = `Error during prediction: ${error.message}`;
+    }
+}

@@ -338,6 +338,27 @@
             border-radius: 8px;
             font-size: 1em;
         }
+        .slider-container {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .slider {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .slider-container label {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        #threshold-value {
+            font-weight: bold;
+            color: #3498db;
+        }
     </style>
 </head>
 <body>
@@ -432,13 +453,24 @@
 
         <div id="Model Evaluation" class="card">
             <h2>📊 Model Evaluation</h2>
-            <button class="btn" onclick="evaluateModel()">Evaluate Model</button>
-            <div id="evaluation-results"></div>
+                <button class="btn" id="evaluate-btn" onclick="evaluateModel()">Evaluate Model</button>
+                
+                <!-- Добавьте этот блок для слайдера и метрик -->
+                <div style="margin: 20px 0;">
+                    <div class="slider-container">
+                        <label>Prediction Threshold: <span id="threshold-value">0.50</span></label>
+                        <input type="range" id="threshold-slider" class="slider" min="0" max="1" step="0.01" value="0.50" disabled>
+                    </div>
+                    <div id="confusion-matrix"></div>
+                    <div id="performance-metrics"></div>
+                </div>
+                
+                <div id="evaluation-results"></div>
         </div>
 
         <div id="Prediction" class="card">
             <h2>🔮 Prediction</h2>
-            <button class="btn" onclick="predict()">Predict on Test Data</button>
+            <button class="btn" id="predict-btn" onclick="predict()" disabled>Predict on Test Data</button>
             <div id="prediction-results"></div>
         </div>
 

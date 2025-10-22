@@ -1,11 +1,3 @@
-const APP_MODE = {
-    TRAINING: 'training',     // Для ML специалистов
-    PREDICTION: 'prediction' // Для бизнес-пользователей
-};
-
-let currentMode = APP_MODE.TRAINING;
-let trainedModel = null; // Сохраняем обученную модель
-
 // Global variables
 let trainData = null;
 let testData = null;
@@ -600,6 +592,7 @@ function oneHotEncode(value, categories) {
 
 // [Rest of the functions remain the same as previous version: createModel, trainModel, updateMetrics, plotROC, predict, createPredictionTable, exportResults, toggleVisor, recreateVisualizations]
 
+// Create the model - UPDATED VERSION
 function createModel() {
     if (!preprocessedTrainData) {
         alert('Please preprocess data first.');
@@ -608,7 +601,7 @@ function createModel() {
     
     const inputShape = preprocessedTrainData.features.shape[1];
     
-    console.log('Creating ULTRA SIMPLIFIED model with input shape:', inputShape);
+    console.log('Creating model with input shape:', inputShape);
     
     // Clear any existing model
     if (model) {
@@ -617,36 +610,39 @@ function createModel() {
     
     model = tf.sequential();
     
-    // СУПЕР-ПРОСТАЯ АРХИТЕКТУРА - 2 слоя как в Titanic
+    // Simplified architecture
     model.add(tf.layers.dense({
-        units: 24,  // ЕЩЕ МЕНЬШЕ!
+        units: 24,
         activation: 'relu',
         inputShape: [inputShape],
-        kernelRegularizer: tf.regularizers.l2({l2: 0.01}) // Добавляем регуляризацию
+        kernelRegularizer: tf.regularizers.l2({l2: 0.01})
     }));
     
-    model.add(tf.layers.dropout({rate: 0.3})); // Больше регуляризации
+    model.add(tf.layers.dropout({rate: 0.3}));
     
-    // Выходной слой
+    // Output layer
     model.add(tf.layers.dense({
         units: 1,
         activation: 'sigmoid'
     }));
     
-    // Компиляция с БОЛЕЕ КОНСЕРВАТИВНЫМИ весами
+    // Compilation
     model.compile({
         optimizer: tf.train.adam(0.001),
         loss: 'binaryCrossentropy',
         metrics: ['accuracy']
     });
     
+    // UPDATED MODEL SUMMARY
     const summaryDiv = document.getElementById('model-summary');
     summaryDiv.innerHTML = '<h3>Vehicle Insurance Cross-Selling Model</h3>';
     summaryDiv.innerHTML += `
-    <p><strong>Architecture:</strong> 2-layer Neural Network (24 → 1 neurons)</p>
-    <p><strong>Purpose:</strong> Predict customer interest in Vehicle Insurance</p>
-    <p><strong>Optimization:</strong> Precision-focused with early stopping</p>
-    <p><strong>Business Value:</strong> Targeted marketing & revenue optimization</p>`;
+        <p><strong>Architecture:</strong> 2-layer Neural Network (24 → 1 neurons)</p>
+        <p><strong>Purpose:</strong> Predict customer interest in Vehicle Insurance</p>
+        <p><strong>Optimization:</strong> Precision-focused with early stopping</p>
+        <p><strong>Business Value:</strong> Targeted marketing & revenue optimization</p>
+        <p><strong>Total Parameters:</strong> ${model.countParams().toLocaleString()}</p>
+    `;
     
     document.getElementById('train-btn').disabled = false;
 }
@@ -1316,4 +1312,291 @@ function resetModelSession() {
     
     console.log('Model session reset complete');
 }
+
+const APP_MODE = {
+    TRAINING: 'training',
+    PREDICTION: 'prediction'
+};
+
+let currentMode = APP_MODE.TRAINING;
+let trainedModel = null;
+
+// Switch between ML Specialist and Business User modes
+function switchMode(mode) {
+    currentMode = mode;
+    
+    if (mode === APP_MODE.TRAINING) {
+        // Show all training sections
+        document.querySelectorAll('.card').forEach(card => {
+            card.style.display = 'block';
+        });
+        document.getElementById('ml-mode-btn').style.background = 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)';
+        document.getElementById('business-mode-btn').style.background = '#6c757d';
+        document.getElementById('mode-indicator').textContent = 'Current Mode: ML Specialist';
+        document.getElementById('mode-indicator').style.color = '#007bff';
+    } else {
+        // Business User Mode - hide training sections, show only prediction
+        document.querySelectorAll('.card').forEach(card => {
+            const cardTitle = card.querySelector('h2');
+            if (cardTitle && (
+                cardTitle.textContent.includes('Data Upload') ||
+                cardTitle.textContent.includes('Data Exploration') ||
+                cardTitle.textContent.includes('Data Preprocessing') ||
+                cardTitle.textContent.includes('Model Configuration') ||
+                cardTitle.textContent.includes('Model Training') ||
+                cardTitle.textContent.includes('Model Evaluation') ||
+                cardTitle.textContent.includes('Prediction') ||
+                cardTitle.textContent.includes('Export Results')
+            )) {
+                card.style.display = 'none';
+            }
+        });
+        
+        // Show single prediction card
+        const singlePredCard = document.querySelector('.card h2');
+        if (singlePredCard && singlePredCard.textContent.includes('Single Customer Prediction')) {
+            singlePredCard.closest('.card').style.display = 'block';
+        }
+        
+        document.getElementById('ml-mode-btn').style.background = '#6c757d';
+        document.getElementById('business-mode-btn').style.background = 'linear-gradient(135deg, #28a745 0%, #1e7e34 100%)';
+        document.getElementById('mode-indicator').textContent = 'Current Mode: Business User';
+        document.getElementById('mode-indicator').style.color = '#28a745';
+        
+        if (!trainedModel) {
+            alert('No trained model available. Please train the model in ML Specialist mode first.');
+            switchMode(APP_MODE.TRAINING);
+            return;
+        }
+    }
+    updateModelStatus();
+}
+
+// Update model status indicator
+function updateModelStatus() {
+    const statusElement = document.getElementById('model-status');
+    if (trainedModel) {
+        statusElement.innerHTML = '🟢 Model Ready for Predictions';
+        statusElement.style.color = 'green';
+    } else {
+        statusElement.innerHTML = '🔴 No Model Available - Train First';
+        statusElement.style.color = '#dc3545';
+    }
+}
+
+// Enhanced Business Insights
+function generateBusinessInsights() {
+    if (!trainData || trainData.length === 0) {
+        console.log('No data available for business insights');
+        return;
+    }
+    
+    const insightsDiv = document.getElementById('business-insights');
+    if (!insightsDiv) {
+        console.error('Business insights div not found');
+        return;
+    }
+    
+    insightsDiv.innerHTML = '<h3>📊 Business Insights & Customer Analysis</h3>';
+    
+    // 1. Age Analysis
+    const ages = trainData.map(row => row.Age).filter(age => age !== null && !isNaN(age));
+    const avgAge = calculateMean(ages);
+    const youngCustomers = trainData.filter(row => row.Age < 30).length;
+    const youngInterestRate = youngCustomers > 0 ? 
+        (trainData.filter(row => row.Age < 30 && row.Response === 1).length / youngCustomers * 100) : 0;
+    
+    // 2. Premium Analysis
+    const premiums = trainData.map(row => row.Annual_Premium).filter(p => p !== null && !isNaN(p));
+    const avgPremium = calculateMean(premiums);
+    const highPremiumCustomers = trainData.filter(row => row.Annual_Premium > 50000).length;
+    
+    // 3. Vehicle Damage Analysis
+    const damageData = {};
+    trainData.forEach(row => {
+        if (row.Vehicle_Damage && row.Response !== undefined && row.Response !== null) {
+            if (!damageData[row.Vehicle_Damage]) {
+                damageData[row.Vehicle_Damage] = { interested: 0, total: 0 };
+            }
+            damageData[row.Vehicle_Damage].total++;
+            if (row.Response === 1) damageData[row.Vehicle_Damage].interested++;
+        }
+    });
+    
+    // 4. Previously Insured Analysis
+    const insuredData = {};
+    trainData.forEach(row => {
+        if (row.Previously_Insured !== undefined && row.Previously_Insured !== null && row.Response !== undefined) {
+            const key = row.Previously_Insured === 1 ? 'Yes' : 'No';
+            if (!insuredData[key]) {
+                insuredData[key] = { interested: 0, total: 0 };
+            }
+            insuredData[key].total++;
+            if (row.Response === 1) insuredData[key].interested++;
+        }
+    });
+    
+    const totalCustomers = trainData.length;
+    const interestedCustomers = trainData.filter(row => row.Response === 1).length;
+    const overallInterestRate = (interestedCustomers / totalCustomers * 100);
+    
+    insightsDiv.innerHTML += `
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 15px 0;">
+            <h4>🎯 Customer Demographics</h4>
+            <p><strong>Total Customers Analyzed:</strong> ${totalCustomers.toLocaleString()}</p>
+            <p><strong>Average Customer Age:</strong> ${avgAge.toFixed(1)} years</p>
+            <p><strong>Young Customers (<30):</strong> ${youngCustomers} (${(youngCustomers/totalCustomers*100).toFixed(1)}% of portfolio)</p>
+            <p><strong>Young Customer Interest Rate:</strong> ${youngInterestRate.toFixed(1)}%</p>
+            <p><strong>Average Annual Premium:</strong> ₹${avgPremium.toFixed(0)}</p>
+            <p><strong>High-Premium Customers (>₹50k):</strong> ${highPremiumCustomers}</p>
+        </div>
+        
+        <div style="background: #e8f4fd; padding: 20px; border-radius: 10px; margin: 15px 0;">
+            <h4>🚗 Vehicle Risk Analysis</h4>
+            <p><strong>Customers with Vehicle Damage History:</strong> ${damageData['Yes'] ? damageData['Yes'].total : 0}</p>
+            <p><strong>Damage History → Interest Rate:</strong> ${damageData['Yes'] ? (damageData['Yes'].interested/damageData['Yes'].total*100).toFixed(1) : 0}%</p>
+            <p><strong>No Damage History → Interest Rate:</strong> ${damageData['No'] ? (damageData['No'].interested/damageData['No'].total*100).toFixed(1) : 0}%</p>
+            <p><strong>Previously Insured Customers:</strong> ${insuredData['Yes'] ? insuredData['Yes'].total : 0}</p>
+            <p><strong>Previously Insured → Interest Rate:</strong> ${insuredData['Yes'] ? (insuredData['Yes'].interested/insuredData['Yes'].total*100).toFixed(1) : 0}%</p>
+        </div>
+        
+        <div style="background: #fff3cd; padding: 20px; border-radius: 10px; margin: 15px 0;">
+            <h4>📈 Portfolio Insights</h4>
+            <p><strong>Overall Interest Rate:</strong> ${overallInterestRate.toFixed(1)}%</p>
+            <p><strong>Interested Customers:</strong> ${interestedCustomers}</p>
+            <p><strong>Market Potential:</strong> Based on current portfolio, ~${Math.round(interestedCustomers * 0.3)} additional policies possible with targeted marketing</p>
+            <p><strong>Recommendation:</strong> Focus outreach on customers with vehicle damage history and younger demographics</p>
+        </div>
+    `;
+}
+
+// Single customer prediction
+async function predictSingle() {
+    if (!trainedModel) {
+        alert('Please train the model first in ML Specialist mode or load a pre-trained model.');
+        return;
+    }
+    
+    try {
+        // Collect data from form
+        const age = parseInt(document.getElementById('pred-age').value) || 35;
+        const annualPremium = parseFloat(document.getElementById('pred-premium').value) || 30000;
+        const vintage = parseInt(document.getElementById('pred-vintage').value) || 100;
+        const gender = document.getElementById('pred-gender').value;
+        const drivingLicense = document.getElementById('pred-license').value;
+        const previouslyInsured = document.getElementById('pred-insured').value;
+        const vehicleAge = document.getElementById('pred-vehicle-age').value;
+        const vehicleDamage = document.getElementById('pred-damage').value;
+        
+        // Use training data for standardization (if available)
+        let standardizedAge = age;
+        let standardizedPremium = annualPremium;
+        let standardizedVintage = vintage;
+        
+        if (trainData && trainData.length > 0) {
+            const trainAges = trainData.map(r => r.Age).filter(a => a !== null && !isNaN(a));
+            const trainPremiums = trainData.map(r => r.Annual_Premium).filter(p => p !== null && !isNaN(p));
+            const trainVintages = trainData.map(r => r.Vintage).filter(v => v !== null && !isNaN(v));
+            
+            standardizedAge = (age - calculateMean(trainAges)) / (calculateStdDev(trainAges) || 1);
+            standardizedPremium = (annualPremium - calculateMean(trainPremiums)) / (calculateStdDev(trainPremiums) || 1);
+            standardizedVintage = (vintage - calculateMean(trainVintages)) / (calculateStdDev(trainVintages) || 1);
+        }
+        
+        // Start with numerical features
+        let features = [
+            isNaN(standardizedAge) ? 0 : standardizedAge,
+            isNaN(standardizedPremium) ? 0 : standardizedPremium,
+            0, // Region_Code (default)
+            0, // Policy_Sales_Channel (default)
+            isNaN(standardizedVintage) ? 0 : standardizedVintage
+        ];
+        
+        // One-hot encoding for categorical features
+        const genderOneHot = oneHotEncode(gender, ['Male', 'Female']);
+        const drivingLicenseOneHot = oneHotEncode(drivingLicense, ['1', '0']);
+        const previouslyInsuredOneHot = oneHotEncode(previouslyInsured, ['1', '0']);
+        const vehicleAgeOneHot = oneHotEncode(vehicleAge, ['< 1 Year', '1-2 Year', '> 2 Years']);
+        const vehicleDamageOneHot = oneHotEncode(vehicleDamage, ['Yes', 'No']);
+        
+        // Combine all features
+        const allFeatures = features.concat(
+            genderOneHot, 
+            drivingLicenseOneHot, 
+            previouslyInsuredOneHot, 
+            vehicleAgeOneHot, 
+            vehicleDamageOneHot
+        );
+        
+        // Make prediction
+        const inputTensor = tf.tensor2d([allFeatures]);
+        const prediction = trainedModel.predict(inputTensor);
+        const probability = (await prediction.data())[0];
+        
+        // Show result
+        const resultDiv = document.getElementById('single-result');
+        const threshold = parseFloat(document.getElementById('threshold-slider')?.value || 0.5);
+        const isInterested = probability >= threshold;
+        
+        resultDiv.style.display = 'block';
+        resultDiv.style.background = isInterested ? '#d4edda' : '#f8d7da';
+        resultDiv.style.color = isInterested ? '#155724' : '#721c24';
+        resultDiv.style.borderLeft = isInterested ? '4px solid #28a745' : '4px solid #dc3545';
+        
+        resultDiv.innerHTML = `
+            <h4>🎯 Prediction Result</h4>
+            <p><strong>Interest Probability:</strong> <span style="font-size: 1.2em; font-weight: bold;">${(probability * 100).toFixed(1)}%</span></p>
+            <p><strong>Prediction:</strong> <span style="font-size: 1.1em; font-weight: bold;">${isInterested ? '✅ INTERESTED' : '❌ NOT INTERESTED'}</span></p>
+            <p><strong>Confidence Level:</strong> ${probability >= 0.7 ? 'High' : probability >= 0.4 ? 'Medium' : 'Low'}</p>
+            <p><strong>Recommended Action:</strong> ${isInterested ? 
+                '🎯 Prioritize for targeted marketing campaign' : 
+                '📧 Include in general communication'}</p>
+            ${isInterested ? '<p><em>This customer shows strong interest in vehicle insurance</em></p>' : 
+                            '<p><em>Consider other insurance products for this customer</em></p>'}
+        `;
+        
+        // Clean up tensors
+        inputTensor.dispose();
+        prediction.dispose();
+        
+    } catch (error) {
+        console.error('Error in single prediction:', error);
+        const resultDiv = document.getElementById('single-result');
+        resultDiv.style.display = 'block';
+        resultDiv.style.background = '#fff5f5';
+        resultDiv.style.color = '#721c24';
+        resultDiv.innerHTML = `
+            <h4>❌ Prediction Error</h4>
+            <p>Error making prediction: ${error.message}</p>
+            <p>Please ensure the model is properly trained in ML Specialist mode.</p>
+        `;
+    }
+}
+
+// Update inspectData to include business insights
+const originalInspectData = inspectData;
+inspectData = function() {
+    originalInspectData.call(this);
+    generateBusinessInsights();
+};
+
+// Update trainModel to save the trained model
+const originalTrainModel = trainModel;
+trainModel = async function() {
+    await originalTrainModel.call(this);
+    trainedModel = model;
+    updateModelStatus();
+    console.log('Model saved for business predictions');
+};
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Health Insurance Prediction App initialized');
+    updateModelStatus();
+    
+    // Close visor on page load
+    if (tfvis.visor().isOpen()) {
+        tfvis.visor().close();
+    }
+});
 

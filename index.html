@@ -269,6 +269,19 @@
         .loading {
             animation: pulse 2s infinite;
         }
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+        }
     </style>
 </head>
 <body>
@@ -276,6 +289,23 @@
         <div class="header">
             <h1>🏥 Health Insurance Prediction</h1>
             <p>Predict customer interest in vehicle insurance using machine learning</p>
+        </div>
+        <div class="card">
+            <h2><span class="icon">🎛️</span> Application Mode</h2>
+            <div style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
+                <button onclick="switchMode('training')" id="ml-mode-btn" class="btn" style="background: #007bff;">
+                    <span class="icon">🧠</span> ML Specialist Mode
+                </button>
+                <button onclick="switchMode('prediction')" id="business-mode-btn" class="btn" style="background: #6c757d;">
+                    <span class="icon">💼</span> Business User Mode
+                </button>
+            </div>
+            <div id="mode-indicator" style="font-weight: bold; color: #007bff;">
+                Current Mode: ML Specialist
+            </div>
+            <div id="model-status" style="color: #dc3545; margin-top: 5px;">
+                🔴 No Model Available - Train First
+            </div>
         </div>
 
         <div class="grid">
@@ -305,6 +335,7 @@
                 </button>
                 <div id="data-preview"></div>
                 <div id="data-stats"></div>
+                <div id="business-insights"></div>
                 <div id="charts"></div>
             </div>
         </div>
@@ -384,12 +415,67 @@
                 <div id="export-status" class="status"></div>
             </div>
         </div>
+        <div class="card">
+        <h2><span class="icon">👤</span> Single Customer Prediction</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f8f9fa; padding: 20px; border-radius: 10px;">
+            <div class="form-group">
+                <label>Gender:</label>
+                <select id="pred-gender" class="form-control">
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Age:</label>
+                <input type="number" id="pred-age" min="18" max="100" value="35" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Driving License:</label>
+                <select id="pred-license" class="form-control">
+                    <option value="1">Yes</option>
+                    <option value="0">No</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Previously Insured:</label>
+                <select id="pred-insured" class="form-control">
+                    <option value="1">Yes</option>
+                    <option value="0">No</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Vehicle Age:</label>
+                <select id="pred-vehicle-age" class="form-control">
+                    <option value="< 1 Year">< 1 Year</option>
+                    <option value="1-2 Year">1-2 Years</option>
+                    <option value="> 2 Years">> 2 Years</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Vehicle Damage:</label>
+                <select id="pred-damage" class="form-control">
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Annual Premium (₹):</label>
+                <input type="number" id="pred-premium" min="0" value="30000" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>Vintage:</label>
+                <input type="number" id="pred-vintage" min="0" value="100" class="form-control">
+            </div>
+        </div>
+        <button onclick="predictSingle()" class="btn" style="margin-top: 15px;">
+            <span class="icon">🔮</span> Predict Interest Probability
+        </button>
+        <div id="single-result" class="status" style="display: none;"></div>
     </div>
-
+    </div> <!-- закрывающий container -->
     <div class="footer">
         <p>Health Insurance Prediction App &copy; 2024 | Built with TensorFlow.js</p>
     </div>
-
     <script src="app.js"></script>
 </body>
 </html>

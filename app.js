@@ -1,3 +1,11 @@
+const APP_MODE = {
+    TRAINING: 'training',     // Для ML специалистов
+    PREDICTION: 'prediction' // Для бизнес-пользователей
+};
+
+let currentMode = APP_MODE.TRAINING;
+let trainedModel = null; // Сохраняем обученную модель
+
 // Global variables
 let trainData = null;
 let testData = null;
@@ -158,6 +166,7 @@ function inspectData() {
     
     statsDiv.innerHTML += `<p>${shapeInfo}</p><p>${targetInfo}</p>${missingInfo}`;
     
+    generateBusinessInsights();
     // Create visualizations
     createVisualizations();
     
@@ -301,65 +310,59 @@ function createVisualizations() {
     }
 }
 
-// Basic feature extraction (original version)
-function extractFeatures(row, ageMedian, annualPremiumMedian, regionCodeMedian, policyChannelMedian) {
-    // Safe imputation
-    const age = (row.Age !== null && !isNaN(row.Age)) ? row.Age : ageMedian;
-    const annualPremium = (row.Annual_Premium !== null && !isNaN(row.Annual_Premium)) ? row.Annual_Premium : annualPremiumMedian;
-    const regionCode = (row.Region_Code !== null && !isNaN(row.Region_Code)) ? row.Region_Code : regionCodeMedian;
-    const policyChannel = (row.Policy_Sales_Channel !== null && !isNaN(row.Policy_Sales_Channel)) ? row.Policy_Sales_Channel : policyChannelMedian;
-    const vintage = (row.Vintage !== null && !isNaN(row.Vintage)) ? row.Vintage : 0;
+// Enhanced Business Insights
+function generateBusinessInsights() {
+    const insightsDiv = document.getElementById('business-insights');
+    insightsDiv.innerHTML = '<h3>📊 Business Insights & Customer Analysis</h3>';
     
-    // Get training data for standardization
-    const trainAges = trainData.map(r => r.Age).filter(a => a !== null && !isNaN(a));
-    const trainPremiums = trainData.map(r => r.Annual_Premium).filter(p => p !== null && !isNaN(p));
-    const trainRegions = trainData.map(r => r.Region_Code).filter(c => c !== null && !isNaN(c));
-    const trainChannels = trainData.map(r => r.Policy_Sales_Channel).filter(c => c !== null && !isNaN(c));
-    const trainVintages = trainData.map(r => r.Vintage).filter(v => v !== null && !isNaN(v));
+    // 1. Анализ возраста
+    const ages = trainData.map(row => row.Age).filter(age => age !== null);
+    const avgAge = calculateMean(ages);
+    const youngCustomers = trainData.filter(row => row.Age < 30).length;
+    const youngInterestRate = trainData.filter(row => row.Age < 30 && row.Response === 1).length / youngCustomers * 100;
     
-    // Standardization
-    const standardizedAge = (age - calculateMean(trainAges)) / (calculateStdDev(trainAges) || 1);
-    const standardizedPremium = (annualPremium - calculateMean(trainPremiums)) / (calculateStdDev(trainPremiums) || 1);
-    const standardizedRegion = (regionCode - calculateMean(trainRegions)) / (calculateStdDev(trainRegions) || 1);
-    const standardizedChannel = (policyChannel - calculateMean(trainChannels)) / (calculateStdDev(trainChannels) || 1);
-    const standardizedVintage = (vintage - calculateMean(trainVintages)) / (calculateStdDev(trainVintages) || 1);
+    // 2. Анализ премиумов
+    const premiums = trainData.map(row => row.Annual_Premium).filter(p => p !== null);
+    const avgPremium = calculateMean(premiums);
+    const highPremiumCustomers = trainData.filter(row => row.Annual_Premium > 50000).length;
     
-    // One-hot encoding
-    const genderOneHot = oneHotEncode(row.Gender, ['Male', 'Female']);
-    const drivingLicenseOneHot = oneHotEncode(row.Driving_License?.toString(), ['0', '1']);
-    const previouslyInsuredOneHot = oneHotEncode(row.Previously_Insured?.toString(), ['0', '1']);
-    const vehicleAgeOneHot = oneHotEncode(row.Vehicle_Age, ['< 1 Year', '1-2 Year', '> 2 Years']);
-    const vehicleDamageOneHot = oneHotEncode(row.Vehicle_Damage, ['Yes', 'No']);
+    // 3. Анализ по Vehicle Damage
+    const damageData = {};
+    trainData.forEach(row => {
+        if (row.Vehicle_Damage && row.Response !== undefined) {
+            if (!damageData[row.Vehicle_Damage]) {
+                damageData[row.Vehicle_Damage] = { interested: 0, total: 0 };
+            }
+            damageData[row.Vehicle_Damage].total++;
+            if (row.Response === 1) damageData[row.Vehicle_Damage].interested++;
+        }
+    });
     
-    // Start with numerical features
-    let features = [
-        isNaN(standardizedAge) ? 0 : standardizedAge,
-        isNaN(standardizedPremium) ? 0 : standardizedPremium,
-        isNaN(standardizedRegion) ? 0 : standardizedRegion,
-        isNaN(standardizedChannel) ? 0 : standardizedChannel,
-        isNaN(standardizedVintage) ? 0 : standardizedVintage
-    ];
-    
-    // Add one-hot encoded features
-    features = features.concat(
-        genderOneHot, 
-        drivingLicenseOneHot, 
-        previouslyInsuredOneHot, 
-        vehicleAgeOneHot, 
-        vehicleDamageOneHot
-    );
-    
-    // Add interaction features if enabled
-    if (document.getElementById('add-interaction-features').checked) {
-        const agePremiumInteraction = age * annualPremium / 1000000;
-        const premiumDamageInteraction = annualPremium * (row.Vehicle_Damage === 'Yes' ? 1 : 0);
-        features.push(
-            isNaN(agePremiumInteraction) ? 0 : agePremiumInteraction,
-            isNaN(premiumDamageInteraction) ? 0 : premiumDamageInteraction
-        );
-    }
-    
-    return features;
+    insightsDiv.innerHTML += `
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 15px 0;">
+            <h4>🎯 Customer Demographics</h4>
+            <p><strong>Average Customer Age:</strong> ${avgAge.toFixed(1)} years</p>
+            <p><strong>Young Customers (<30):</strong> ${youngCustomers} (${(youngCustomers/trainData.length*100).toFixed(1)}% of portfolio)</p>
+            <p><strong>Young Customer Interest Rate:</strong> ${youngInterestRate.toFixed(1)}%</p>
+            <p><strong>Average Annual Premium:</strong> ₹${avgPremium.toFixed(0)}</p>
+            <p><strong>High-Premium Customers (>₹50k):</strong> ${highPremiumCustomers}</p>
+        </div>
+        
+        <div style="background: #e8f4fd; padding: 20px; border-radius: 10px; margin: 15px 0;">
+            <h4>🚗 Vehicle Risk Analysis</h4>
+            <p><strong>Customers with Vehicle Damage History:</strong> ${damageData['Yes'] ? damageData['Yes'].total : 0}</p>
+            <p><strong>Damage History → Interest Rate:</strong> ${damageData['Yes'] ? (damageData['Yes'].interested/damageData['Yes'].total*100).toFixed(1) : 0}%</p>
+            <p><strong>No Damage History → Interest Rate:</strong> ${damageData['No'] ? (damageData['No'].interested/damageData['No'].total*100).toFixed(1) : 0}%</p>
+            <p><strong>Insight:</strong> Customers with prior vehicle damage are ${damageData['Yes'] && damageData['No'] ? (damageData['Yes'].interested/damageData['Yes'].total)/(damageData['No'].interested/damageData['No'].total).toFixed(1) : 'N/A'}x more likely to be interested</p>
+        </div>
+        
+        <div style="background: #fff3cd; padding: 20px; border-radius: 10px; margin: 15px 0;">
+            <h4>📈 Portfolio Insights</h4>
+            <p><strong>Overall Interest Rate:</strong> ${(trainData.filter(row => row.Response === 1).length / trainData.length * 100).toFixed(1)}%</p>
+            <p><strong>Market Potential:</strong> Based on current portfolio, ~${Math.round(trainData.filter(row => row.Response === 1).length * 0.3)} additional policies possible</p>
+            <p><strong>Recommendation:</strong> Focus outreach on younger customers with vehicle damage history</p>
+        </div>
+    `;
 }
 
 // Preprocess the data - OPTIMIZED VERSION
@@ -479,7 +482,79 @@ function preprocessData() {
     }, 100); // Small delay to ensure UI updates
 }
 
-
+// Extract features from a row with imputation and normalization
+function extractFeatures(row, ageMedian, annualPremiumMedian, regionCodeMedian, policyChannelMedian) {
+    // Safe imputation
+    const age = (row.Age !== null && !isNaN(row.Age)) ? row.Age : ageMedian;
+    const annualPremium = (row.Annual_Premium !== null && !isNaN(row.Annual_Premium)) ? row.Annual_Premium : annualPremiumMedian;
+    const regionCode = (row.Region_Code !== null && !isNaN(row.Region_Code)) ? row.Region_Code : regionCodeMedian;
+    const policyChannel = (row.Policy_Sales_Channel !== null && !isNaN(row.Policy_Sales_Channel)) ? row.Policy_Sales_Channel : policyChannelMedian;
+    const vintage = (row.Vintage !== null && !isNaN(row.Vintage)) ? row.Vintage : 0;
+    
+    // Get training data for standardization
+    const trainAges = trainData.map(r => r.Age).filter(a => a !== null && !isNaN(a));
+    const trainPremiums = trainData.map(r => r.Annual_Premium).filter(p => p !== null && !isNaN(p));
+    const trainRegions = trainData.map(r => r.Region_Code).filter(c => c !== null && !isNaN(c));
+    const trainChannels = trainData.map(r => r.Policy_Sales_Channel).filter(c => c !== null && !isNaN(c));
+    const trainVintages = trainData.map(r => r.Vintage).filter(v => v !== null && !isNaN(v));
+    
+    // Robust standardization
+    const standardizedAge = (age - calculateMean(trainAges)) / (calculateStdDev(trainAges) || 1);
+    const standardizedPremium = (annualPremium - calculateMean(trainPremiums)) / (calculateStdDev(trainPremiums) || 1);
+    const standardizedRegion = (regionCode - calculateMean(trainRegions)) / (calculateStdDev(trainRegions) || 1);
+    const standardizedChannel = (policyChannel - calculateMean(trainChannels)) / (calculateStdDev(trainChannels) || 1);
+    const standardizedVintage = (vintage - calculateMean(trainVintages)) / (calculateStdDev(trainVintages) || 1);
+    
+    // One-hot encoding
+    const genderOneHot = oneHotEncode(row.Gender, ['Male', 'Female']);
+    const drivingLicenseOneHot = oneHotEncode(row.Driving_License?.toString(), ['0', '1']);
+    const previouslyInsuredOneHot = oneHotEncode(row.Previously_Insured?.toString(), ['0', '1']);
+    const vehicleAgeOneHot = oneHotEncode(row.Vehicle_Age, ['< 1 Year', '1-2 Year', '> 2 Years']);
+    const vehicleDamageOneHot = oneHotEncode(row.Vehicle_Damage, ['Yes', 'No']);
+    
+    // Start with numerical features
+    let features = [
+        isNaN(standardizedAge) ? 0 : standardizedAge,
+        isNaN(standardizedPremium) ? 0 : standardizedPremium,
+        isNaN(standardizedRegion) ? 0 : standardizedRegion,
+        isNaN(standardizedChannel) ? 0 : standardizedChannel,
+        isNaN(standardizedVintage) ? 0 : standardizedVintage
+    ];
+    
+    // Add one-hot encoded features
+    features = features.concat(
+        genderOneHot, 
+        drivingLicenseOneHot, 
+        previouslyInsuredOneHot, 
+        vehicleAgeOneHot, 
+        vehicleDamageOneHot
+    );
+    
+    // CRITICAL: Add domain-specific engineered features
+    // 1. Age groups (insurance relevance)
+    const ageGroup = age < 25 ? 0 : age < 40 ? 1 : age < 60 ? 2 : 3;
+    //const ageGroupOneHot = oneHotEncode(ageGroup.toString(), ['0', '1', '2', '3']);
+    //features = features.concat(ageGroupOneHot);
+    
+    // 2. Premium to age ratio (affordability indicator)
+    //const premiumToAgeRatio = annualPremium / (age || 1);
+    //features.push(isNaN(premiumToAgeRatio) ? 0 : premiumToAgeRatio / 1000);
+    
+    // 3. Risk profile: Young drivers with vehicle damage
+    const youngRiskyDriver = (age < 30 && row.Vehicle_Damage === 'Yes') ? 1 : 0;
+    features.push(youngRiskyDriver);
+    
+    // 4. Previously insured but no current insurance (potential customer)
+    const lapsedCustomer = (row.Previously_Insured === 1 && row.Vehicle_Damage === 'Yes') ? 1 : 0;
+    features.push(lapsedCustomer);
+    
+    // 5. Premium segments
+    const premiumSegment = annualPremium < 20000 ? 0 : annualPremium < 50000 ? 1 : 2;
+    const premiumSegmentOneHot = oneHotEncode(premiumSegment.toString(), ['0', '1', '2']);
+    features = features.concat(premiumSegmentOneHot);
+    
+    return features;
+}
 
 // Calculate median of an array
 function calculateMedian(values) {
@@ -525,7 +600,6 @@ function oneHotEncode(value, categories) {
 
 // [Rest of the functions remain the same as previous version: createModel, trainModel, updateMetrics, plotROC, predict, createPredictionTable, exportResults, toggleVisor, recreateVisualizations]
 
-// Create the model - FIXED VERSION
 function createModel() {
     if (!preprocessedTrainData) {
         alert('Please preprocess data first.');
@@ -533,9 +607,8 @@ function createModel() {
     }
     
     const inputShape = preprocessedTrainData.features.shape[1];
-    const modelType = document.getElementById('model-type').value;
-    console.log('Creating enhanced model with input shape:', inputShape);
-
+    
+    console.log('Creating ULTRA SIMPLIFIED model with input shape:', inputShape);
     
     // Clear any existing model
     if (model) {
@@ -544,98 +617,36 @@ function createModel() {
     
     model = tf.sequential();
     
-    if (modelType === 'simple') {
-        // ENHANCED simple model for imbalanced data
-        model.add(tf.layers.dense({
-            units: 64,
-            activation: 'relu',
-            inputShape: [inputShape],
-            kernelInitializer: 'heNormal',
-            kernelRegularizer: tf.regularizers.l2({l2: 0.001})
-        }));
-        
-        model.add(tf.layers.batchNormalization());
-        model.add(tf.layers.dropout({rate: 0.3}));
-        
-        model.add(tf.layers.dense({
-            units: 32,
-            activation: 'relu',
-            kernelRegularizer: tf.regularizers.l2({l2: 0.001})
-        }));
-        
-        model.add(tf.layers.dropout({rate: 0.2}));
-        
-        model.add(tf.layers.dense({
-            units: 16,
-            activation: 'relu'
-        }));
-        
-        model.add(tf.layers.dense({
-            units: 1,
-            activation: 'sigmoid'
-        }));
-        
-    } else if (modelType === 'deep') {
-        // ENHANCED deep architecture
-        model.add(tf.layers.dense({
-            units: 128,
-            activation: 'elu',
-            inputShape: [inputShape],
-            kernelInitializer: 'heNormal',
-            kernelRegularizer: tf.regularizers.l2({l2: 0.01})
-        }));
-        
-        model.add(tf.layers.batchNormalization());
-        model.add(tf.layers.dropout({rate: 0.4}));
-        
-        model.add(tf.layers.dense({
-            units: 64,
-            activation: 'elu',
-            kernelRegularizer: tf.regularizers.l2({l2: 0.01})
-        }));
-        
-        model.add(tf.layers.batchNormalization());
-        model.add(tf.layers.dropout({rate: 0.3}));
-        
-        model.add(tf.layers.dense({
-            units: 32,
-            activation: 'elu'
-        }));
-        
-        model.add(tf.layers.dropout({rate: 0.2}));
-        
-        model.add(tf.layers.dense({
-            units: 16,
-            activation: 'relu'
-        }));
-        
-        model.add(tf.layers.dense({
-            units: 1,
-            activation: 'sigmoid'
-        }));
-    }
+    // СУПЕР-ПРОСТАЯ АРХИТЕКТУРА - 2 слоя как в Titanic
+    model.add(tf.layers.dense({
+        units: 24,  // ЕЩЕ МЕНЬШЕ!
+        activation: 'relu',
+        inputShape: [inputShape],
+        kernelRegularizer: tf.regularizers.l2({l2: 0.01}) // Добавляем регуляризацию
+    }));
     
-    // Enhanced compilation
+    model.add(tf.layers.dropout({rate: 0.3})); // Больше регуляризации
+    
+    // Выходной слой
+    model.add(tf.layers.dense({
+        units: 1,
+        activation: 'sigmoid'
+    }));
+    
+    // Компиляция с БОЛЕЕ КОНСЕРВАТИВНЫМИ весами
     model.compile({
-        optimizer: tf.train.adam(0.0005),
+        optimizer: tf.train.adam(0.001),
         loss: 'binaryCrossentropy',
-        metrics: ['accuracy'] // Keep it simple for compatibility
+        metrics: ['accuracy']
     });
     
-    // Display enhanced model summary
     const summaryDiv = document.getElementById('model-summary');
-    summaryDiv.innerHTML = '<h3>Enhanced Model Summary</h3>';
-    
-    let summaryText = `<p>Model Type: ${modelType === 'simple' ? 'Enhanced Simple Network' : 'Enhanced Deep Network'}</p>`;
-    summaryText += `<p>Input Features: ${inputShape}</p>`;
-    summaryText += '<ul>';
-    model.layers.forEach((layer, i) => {
-        summaryText += `<li>Layer ${i+1}: ${layer.getClassName()} - Units: ${layer.units || 'N/A'}</li>`;
-    });
-    summaryText += '</ul>';
-    summaryText += `<p>Total parameters: ${model.countParams().toLocaleString()}</p>`;
-    summaryText += `<p>Architecture optimized for class imbalance</p>`;
-    summaryDiv.innerHTML += summaryText;
+    summaryDiv.innerHTML = '<h3>Vehicle Insurance Cross-Selling Model</h3>';
+    summaryDiv.innerHTML += `
+    <p><strong>Architecture:</strong> 2-layer Neural Network (24 → 1 neurons)</p>
+    <p><strong>Purpose:</strong> Predict customer interest in Vehicle Insurance</p>
+    <p><strong>Optimization:</strong> Precision-focused with early stopping</p>
+    <p><strong>Business Value:</strong> Targeted marketing & revenue optimization</p>`;
     
     document.getElementById('train-btn').disabled = false;
 }
@@ -741,14 +752,14 @@ async function trainModel() {
     }
     
     const statusDiv = document.getElementById('training-status');
-    statusDiv.innerHTML = 'Training enhanced model with class balancing...';
+    statusDiv.innerHTML = 'Training model with Early Stopping...';
     
     try {
         // Split data
         const splitIndex = Math.floor(preprocessedTrainData.features.shape[0] * 0.8);
         
-        let trainFeatures = preprocessedTrainData.features.slice(0, splitIndex);
-        let trainLabels = preprocessedTrainData.labels.slice(0, splitIndex);
+        const trainFeatures = preprocessedTrainData.features.slice(0, splitIndex);
+        const trainLabels = preprocessedTrainData.labels.slice(0, splitIndex);
         
         const valFeatures = preprocessedTrainData.features.slice(splitIndex);
         const valLabels = preprocessedTrainData.labels.slice(splitIndex);
@@ -759,19 +770,17 @@ async function trainModel() {
         
         const epochs = parseInt(document.getElementById('epochs').value);
         
-        // Calculate advanced class weights
+        // УПРОЩЕННЫЕ CLASS WEIGHTS
         const labelsArray = await trainLabels.data();
         const positiveCount = labelsArray.filter(label => label === 1).length;
         const negativeCount = labelsArray.length - positiveCount;
         
-        // Dynamic class weighting based on imbalance ratio
-        const imbalanceRatio = negativeCount / positiveCount;
-        const positiveWeight = Math.min(imbalanceRatio, 10); // Cap at 10x
+        // Более консервативные веса
+        const positiveWeight = Math.min(negativeCount / positiveCount, 3); // Макс 3x вместо 5x
         
         console.log('Class distribution:', {
             positive: positiveCount,
             negative: negativeCount,
-            imbalanceRatio: imbalanceRatio.toFixed(2),
             positiveWeight: positiveWeight.toFixed(2)
         });
         
@@ -779,46 +788,77 @@ async function trainModel() {
             0: 1, 
             1: positiveWeight
         };
-        
-        // Enhanced training with callbacks
+
+        // 🔥 EARLY STOPPING VARIABLES
+        let bestValLoss = Infinity;
+        let patience = 5; // Сколько эпох ждать ухудшения
+        let patienceCounter = 0;
+        let bestWeights = null;
+
+        // УПРОЩЕННАЯ ТРЕНИРОВКА С EARLY STOPPING
         trainingHistory = await model.fit(trainFeatures, trainLabels, {
             epochs: epochs,
             batchSize: 32,
             validationData: [valFeatures, valLabels],
             classWeight: classWeight,
             callbacks: {
-                onEpochEnd: async (epoch, logs) => {
-                    const status = `Epoch ${epoch + 1}/${epochs} - loss: ${logs.loss.toFixed(4)}, acc: ${logs.acc.toFixed(4)}, val_loss: ${logs.val_loss.toFixed(4)}, val_acc: ${logs.val_acc.toFixed(4)}`;
-                    statusDiv.innerHTML = status;
-                    console.log(status);
-                    
-                    // Dynamic learning rate scheduling
-                    if ((epoch + 1) % 15 === 0) {
-                        const currentLr = model.optimizer.learningRate;
-                        const newLr = currentLr * 0.8;
-                        model.optimizer.learningRate = newLr;
-                        console.log(`Reduced learning rate to: ${newLr}`);
+                onEpochBegin: async (epoch, logs) => {
+                    // Сохраняем лучшие веса в начале каждой эпохи
+                    if (epoch === 0) {
+                        bestWeights = model.getWeights();
                     }
                 },
+                onEpochEnd: async (epoch, logs) => {
+                    const status = `Epoch ${epoch + 1}/${epochs} - loss: ${logs.loss.toFixed(4)}, acc: ${logs.acc.toFixed(4)}, val_loss: ${logs.val_loss.toFixed(4)}, val_acc: ${logs.val_acc.toFixed(4)}`;
+                    
+                    // 🔥 EARLY STOPPING LOGIC
+                    if (logs.val_loss < bestValLoss) {
+                        bestValLoss = logs.valLoss;
+                        patienceCounter = 0;
+                        // Сохраняем лучшие веса
+                        bestWeights = model.getWeights();
+                        statusDiv.innerHTML = status + ' ✅ (Best val_loss)';
+                    } else {
+                        patienceCounter++;
+                        statusDiv.innerHTML = status + ` ⚠️ (Patience: ${patienceCounter}/${patience})`;
+                        
+                        // Если терпение исчерпано - останавливаем training
+                        if (patienceCounter >= patience) {
+                            console.log(`Early stopping triggered at epoch ${epoch + 1}`);
+                            model.stopTraining = true;
+                            
+                            // Восстанавливаем лучшие веса
+                            if (bestWeights) {
+                                model.setWeights(bestWeights);
+                                console.log('Restored best model weights');
+                            }
+                        }
+                    }
+                    
+                    console.log(status);
+                },
                 onTrainEnd: () => {
-                    statusDiv.innerHTML += '<p style="color: green;">Training completed successfully!</p>';
+                    statusDiv.innerHTML += '<p style="color: green;">Training completed!</p>';
+                    if (patienceCounter >= patience) {
+                        statusDiv.innerHTML += '<p style="color: orange;">Early stopping was triggered</p>';
+                    }
+                    
+                    // Автоматически найти оптимальный threshold
+                    setTimeout(() => {
+                        validationPredictions = model.predict(validationData);
+                        updateMetrics();
+                    }, 500);
                 }
             }
         });
         
-        // Enhanced validation predictions
-        validationPredictions = model.predict(validationData);
-        
-        // Enable evaluation components
+        // Включаем UI элементы
         document.getElementById('threshold-slider').disabled = false;
         document.getElementById('threshold-slider').addEventListener('input', updateMetrics);
         document.getElementById('predict-btn').disabled = false;
         
-        // Initial metrics calculation
-        updateMetrics();
-        
     } catch (error) {
-        console.error('Error during enhanced training:', error);
+        console.error('Error during training:', error);
         statusDiv.innerHTML = `<p style="color: red;">Error during training: ${error.message}</p>`;
     }
 }
@@ -1276,5 +1316,4 @@ function resetModelSession() {
     
     console.log('Model session reset complete');
 }
-
 

@@ -8,492 +8,388 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@1.5.1"></script>
     <style>
         * {
-            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            box-sizing: border-box;
         }
-        
+
         body {
-            background-color: #f5f7fa;
-            color: #333;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
-            padding: 20px;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
         }
-        
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
+            padding: 20px;
         }
-        
-        header {
-            background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
-            color: white;
-            padding: 30px;
+
+        .header {
             text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
         }
-        
-        h1 {
-            font-size: 2.5rem;
+
+        .header h1 {
+            font-size: 2.5em;
             margin-bottom: 10px;
-            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
-        
-        .subtitle {
-            font-size: 1.1rem;
+
+        .header p {
+            font-size: 1.2em;
             opacity: 0.9;
-            max-width: 800px;
-            margin: 0 auto;
         }
-        
-        .content {
-            padding: 30px;
-        }
-        
-        .section {
-            margin-bottom: 40px;
+
+        .card {
+            background: white;
+            border-radius: 15px;
             padding: 25px;
-            border: 1px solid #e1e5eb;
-            border-radius: 8px;
-            background: #fff;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        
-        h2 {
-            color: #2c3e50;
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h2 {
+            color: #4a5568;
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 2px solid #4b6cb7;
-            font-size: 1.5rem;
+            border-bottom: 2px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        
-        h3 {
-            color: #34495e;
-            margin: 15px 0;
-            font-size: 1.2rem;
+
+        .card h2 .icon {
+            font-size: 1.3em;
         }
-        
-        .btn {
-            background: #4b6cb7;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            margin: 5px;
+
+        .form-group {
+            margin-bottom: 20px;
         }
-        
-        .btn:hover {
-            background: #3a5a9c;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-        
-        .btn:disabled {
-            background: #95a5a6;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        
-        .btn-secondary {
-            background: #3498db;
-        }
-        
-        .btn-secondary:hover {
-            background: #2980b9;
-        }
-        
-        .btn-success {
-            background: #27ae60;
-        }
-        
-        .btn-success:hover {
-            background: #219653;
-        }
-        
-        .btn-warning {
-            background: #e67e22;
-        }
-        
-        .btn-warning:hover {
-            background: #d35400;
-        }
-        
-        .file-input {
-            margin: 15px 0;
-            padding: 10px;
-            border: 2px dashed #bdc3c7;
-            border-radius: 6px;
-            background: #f8f9fa;
-        }
-        
-        .control-group {
-            margin: 15px 0;
-        }
-        
+
         label {
             display: block;
             margin-bottom: 8px;
             font-weight: 600;
-            color: #2c3e50;
+            color: #4a5568;
         }
-        
-        select, input[type="number"] {
+
+        input[type="file"],
+        select {
             width: 100%;
-            max-width: 300px;
-            padding: 10px;
-            border: 1px solid #bdc3c7;
-            border-radius: 4px;
-            font-size: 1rem;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
         }
-        
+
+        input[type="file"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
         .slider-container {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin: 15px 0;
+            margin: 20px 0;
         }
-        
-        input[type="range"] {
-            flex: 1;
-            max-width: 300px;
-        }
-        
-        .output {
-            background: #f8f9fa;
-            border: 1px solid #e1e5eb;
-            border-radius: 6px;
-            padding: 15px;
-            margin-top: 15px;
-            min-height: 50px;
-            font-family: monospace;
-            white-space: pre-wrap;
-            overflow-x: auto;
-        }
-        
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+
+        .slider {
+            width: 100%;
             margin: 10px 0;
         }
-        
-        input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-        }
-        
-        .status {
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
-        }
-        
-        .status.info {
-            background: #d6eaf8;
-            border-left: 4px solid #3498db;
-        }
-        
-        .status.success {
-            background: #d5f5e3;
-            border-left: 4px solid #27ae60;
-        }
-        
-        .status.warning {
-            background: #fcf3cf;
-            border-left: 4px solid #f1c40f;
-        }
-        
-        .status.error {
-            background: #fadbd8;
-            border-left: 4px solid #e74c3c;
-        }
-        
+
         table {
             width: 100%;
             border-collapse: collapse;
             margin: 15px 0;
         }
-        
-        th, td {
-            padding: 12px 15px;
+
+        table th,
+        table td {
+            padding: 12px;
             text-align: left;
-            border-bottom: 1px solid #e1e5eb;
+            border-bottom: 1px solid #e2e8f0;
         }
-        
-        th {
-            background-color: #f8f9fa;
+
+        table th {
+            background-color: #f7fafc;
             font-weight: 600;
-            color: #2c3e50;
+            color: #4a5568;
         }
-        
-        tr:hover {
-            background-color: #f5f7fa;
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
         }
-        
-        .step-indicator {
+
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            background-color: #f7fafc;
+            border-left: 4px solid #667eea;
+        }
+
+        .status.success {
+            border-left-color: #48bb78;
+            background-color: #f0fff4;
+        }
+
+        .status.error {
+            border-left-color: #f56565;
+            background-color: #fff5f5;
+        }
+
+        .feature-toggle {
             display: flex;
-            justify-content: space-between;
-            margin: 30px 0;
-            position: relative;
-        }
-        
-        .step-indicator::before {
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: #bdc3c7;
-            z-index: 1;
-        }
-        
-        .step {
-            display: flex;
-            flex-direction: column;
             align-items: center;
-            position: relative;
-            z-index: 2;
+            gap: 10px;
+            margin: 10px 0;
         }
-        
-        .step-number {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #bdc3c7;
+
+        .feature-toggle input[type="checkbox"] {
+            width: auto;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+        }
+
+        .footer {
+            text-align: center;
             color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            margin-bottom: 8px;
-        }
-        
-        .step.active .step-number {
-            background: #4b6cb7;
-        }
-        
-        .step.completed .step-number {
-            background: #27ae60;
-        }
-        
-        .step-label {
-            font-size: 0.9rem;
-            text-align: center;
-            font-weight: 600;
-        }
-        
-        footer {
-            text-align: center;
-            padding: 20px;
-            color: #7f8c8d;
-            font-size: 0.9rem;
-            border-top: 1px solid #e1e5eb;
             margin-top: 40px;
+            padding: 20px;
+            opacity: 0.8;
         }
-        
+
+        /* Responsive design */
         @media (max-width: 768px) {
             .container {
-                border-radius: 0;
-                box-shadow: none;
+                padding: 10px;
             }
             
-            .content {
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .card {
                 padding: 15px;
             }
             
-            .step-indicator {
-                flex-wrap: wrap;
-                gap: 15px;
+            .grid {
+                grid-template-columns: 1fr;
             }
-            
-            .step-indicator::before {
-                display: none;
-            }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+
+        /* Animation for loading states */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .loading {
+            animation: pulse 2s infinite;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>Health Insurance Prediction App</h1>
-            <p class="subtitle">
-                Predict customer interest in vehicle insurance based on health insurance data. 
-                Upload your datasets, train a neural network model, and generate predictions.
-            </p>
-        </header>
-        
-        <div class="content">
-            <!-- Step Indicator -->
-            <div class="step-indicator">
-                <div class="step active" id="step1">
-                    <div class="step-number">1</div>
-                    <div class="step-label">Load Data</div>
-                </div>
-                <div class="step" id="step2">
-                    <div class="step-number">2</div>
-                    <div class="step-label">Inspect & Visualize</div>
-                </div>
-                <div class="step" id="step3">
-                    <div class="step-number">3</div>
-                    <div class="step-label">Preprocess</div>
-                </div>
-                <div class="step" id="step4">
-                    <div class="step-number">4</div>
-                    <div class="step-label">Create Model</div>
-                </div>
-                <div class="step" id="step5">
-                    <div class="step-number">5</div>
-                    <div class="step-label">Train & Evaluate</div>
-                </div>
-                <div class="step" id="step6">
-                    <div class="step-number">6</div>
-                    <div class="step-label">Predict & Export</div>
-                </div>
-            </div>
-            
-            <!-- Section 1: Data Loading -->
-            <div class="section">
-                <h2>1. Data Loading</h2>
-                <p>Upload your training and test CSV files. The training data should include the target variable (Response).</p>
-                
-                <div class="file-input">
-                    <label for="train-file">Training Data (CSV):</label>
+        <div class="header">
+            <h1>🏥 Health Insurance Prediction</h1>
+            <p>Predict customer interest in vehicle insurance using machine learning</p>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2><span class="icon">📁</span> Data Upload</h2>
+                <div class="form-group">
+                    <label for="train-file">Training Data (CSV)</label>
                     <input type="file" id="train-file" accept=".csv">
                 </div>
-                
-                <div class="file-input">
-                    <label for="test-file">Test Data (CSV):</label>
+                <div class="form-group">
+                    <label for="test-file">Test Data (CSV)</label>
                     <input type="file" id="test-file" accept=".csv">
                 </div>
-                
-                <button class="btn" onclick="loadData()">Load Data</button>
-                <button class="btn btn-secondary" onclick="toggleVisor()">Show/Hide Charts</button>
-                
-                <div id="data-status" class="output">
-                    Data not loaded yet.
-                </div>
+                <button class="btn" onclick="loadData()">
+                    <span class="icon">📊</span> Load Data
+                </button>
+                <div id="data-status" class="status"></div>
             </div>
-            
-            <!-- Section 2: Data Inspection -->
-            <div class="section">
-                <h2>2. Data Inspection & Visualization</h2>
-                <p>Explore your data, view statistics, and visualize distributions.</p>
-                
-                <button class="btn" id="inspect-btn" onclick="inspectData()" disabled>Inspect Data</button>
-                
-                <div id="data-preview" class="output">
-                    Data preview will appear here.
-                </div>
-                
-                <div id="data-stats" class="output">
-                    Data statistics will appear here.
-                </div>
-                
-                <div id="charts" class="output">
-                    Charts will appear here.
-                </div>
+
+            <div class="card">
+                <h2><span class="icon">🔍</span> Data Exploration</h2>
+                <button class="btn" id="inspect-btn" onclick="inspectData()" disabled>
+                    <span class="icon">🔍</span> Inspect Data
+                </button>
+                <button class="btn btn-secondary" id="visor-toggle-btn" onclick="toggleVisor()">
+                    <span class="icon">📊</span> Show Charts
+                </button>
+                <div id="data-preview"></div>
+                <div id="data-stats"></div>
+                <div id="charts"></div>
             </div>
-            
-            <!-- Section 3: Data Preprocessing -->
-            <div class="section">
-                <h2>3. Data Preprocessing</h2>
-                <p>Prepare the data for training by handling missing values, encoding categorical variables, and normalizing numerical features.</p>
-                
-                <div class="checkbox-group">
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2><span class="icon">⚙️</span> Data Preprocessing</h2>
+                <div class="feature-toggle">
                     <input type="checkbox" id="add-interaction-features" checked>
                     <label for="add-interaction-features">Add interaction features (Age*Premium, Premium*Damage)</label>
                 </div>
-                
-                <button class="btn" id="preprocess-btn" onclick="preprocessData()" disabled>Preprocess Data</button>
-                
-                <div id="preprocessing-output" class="output">
-                    Preprocessing output will appear here.
-                </div>
+                <button class="btn" id="preprocess-btn" onclick="preprocessData()" disabled>
+                    <span class="icon">⚙️</span> Preprocess Data
+                </button>
+                <div id="preprocessing-output" class="status"></div>
             </div>
-            
-            <!-- Section 4: Model Creation -->
-            <div class="section">
-                <h2>4. Model Creation</h2>
-                <p>Create a neural network model for binary classification.</p>
-                
-                <div class="control-group">
-                    <label for="model-type">Model Type:</label>
+
+            <div class="card">
+                <h2><span class="icon">🧠</span> Model Configuration</h2>
+                <div class="form-group">
+                    <label for="model-type">Model Type</label>
                     <select id="model-type">
                         <option value="simple">Simple Neural Network</option>
                         <option value="deep">Deep Neural Network</option>
                     </select>
                 </div>
-                
-                <button class="btn" id="create-model-btn" onclick="createModel()" disabled>Create Model</button>
-                
-                <div id="model-summary" class="output">
-                    Model summary will appear here.
+                <div class="form-group">
+                    <label for="epochs">Training Epochs</label>
+                    <select id="epochs">
+                    <option value="30">30 Epochs</option>
+                    <option value="50" selected>50 Epochs</option>
+                    <option value="80">80 Epochs</option>
+                    <option value="100">100 Epochs</option>
+                    </select>
                 </div>
-            </div>
-            
-            <!-- Section 5: Model Training & Evaluation -->
-            <div class="section">
-                <h2>5. Model Training & Evaluation</h2>
-                <p>Train the model and evaluate its performance on a validation set.</p>
-                
-                <div class="control-group">
-                    <label for="epochs">Number of Epochs:</label>
-                    <input type="number" id="epochs" min="1" max="100" value="20">
-                </div>
-                
-                <button class="btn btn-success" id="train-btn" onclick="trainModel()" disabled>Train Model</button>
-                
-                <div id="training-status" class="output">
-                    Training status will appear here.
-                </div>
-                
-                <h3>Model Evaluation</h3>
-                <p>Adjust the classification threshold to balance precision and recall:</p>
-                
-                <div class="slider-container">
-                    <label for="threshold-slider">Threshold:</label>
-                    <input type="range" id="threshold-slider" min="0" max="1" step="0.01" value="0.5" disabled>
-                    <span id="threshold-value">0.50</span>
-                </div>
-                
-                <div id="confusion-matrix" class="output">
-                    Confusion matrix will appear here.
-                </div>
-                
-                <div id="performance-metrics" class="output">
-                    Performance metrics will appear here.
-                </div>
-            </div>
-            
-            <!-- Section 6: Prediction & Export -->
-            <div class="section">
-                <h2>6. Prediction & Export</h2>
-                <p>Generate predictions on the test data and export the results.</p>
-                
-                <button class="btn btn-warning" id="predict-btn" onclick="predict()" disabled>Predict on Test Data</button>
-                <button class="btn btn-success" id="export-btn" onclick="exportPredictions()" disabled>Export Predictions</button>
-                
-                <div id="prediction-output" class="output">
-                    Prediction results will appear here.
-                </div>
+                <button class="btn" id="create-model-btn" onclick="createModel()" disabled>
+                    <span class="icon">🧠</span> Create Model
+                </button>
+                <div id="model-summary"></div>
             </div>
         </div>
-        
-        <footer>
-            <p>Health Insurance Prediction App &copy; 2024 | University Midterm Project</p>
-            <p>Built with TensorFlow.js and tfjs-vis</p>
-        </footer>
+
+        <div class="grid">
+            <div class="card">
+                <h2><span class="icon">🚀</span> Model Training</h2>
+                <button class="btn" id="train-btn" onclick="trainModel()" disabled>
+                    <span class="icon">🚀</span> Train Model
+                </button>
+                <div id="training-status" class="status"></div>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">📈</span> Model Evaluation</h2>
+                <div class="slider-container">
+                    <label>Prediction Threshold: <span id="threshold-value">0.50</span></label>
+                    <input type="range" id="threshold-slider" class="slider" min="0" max="1" step="0.01" value="0.50" disabled>
+                </div>
+                <div id="confusion-matrix"></div>
+                <div id="performance-metrics"></div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2><span class="icon">🔮</span> Prediction</h2>
+                <button class="btn" id="predict-btn" onclick="predict()" disabled>
+                    <span class="icon">🔮</span> Predict on Test Data
+                </button>
+                <div id="prediction-output" class="status"></div>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">💾</span> Export Results</h2>
+                <button class="btn" id="export-btn" onclick="exportResults()" disabled>
+                    <span class="icon">💾</span> Export Predictions & Model
+                </button>
+                <div id="export-status" class="status"></div>
+            </div>
+        </div>
     </div>
-    
+
+    <div class="footer">
+        <p>Health Insurance Prediction App &copy; 2024 | Built with TensorFlow.js</p>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>

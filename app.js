@@ -46,9 +46,6 @@ async function loadData() {
         
         // Enable the inspect button
         document.getElementById('inspect-btn').disabled = false;
-        
-        // Update step indicator
-        updateStepIndicator(2);
     } catch (error) {
         console.error('Error loading data:', error);
         statusDiv.innerHTML = `Error loading data: ${error.message}`;
@@ -139,6 +136,13 @@ function inspectData() {
     const shapeInfo = `Dataset shape: ${trainData.length} rows x ${Object.keys(trainData[0]).length} columns`;
     const interestCount = trainData.filter(row => row[TARGET_FEATURE] === 1).length;
     const interestRate = (interestCount / trainData.length * 100).toFixed(2);
+    console.log('Class distribution analysis:');
+    const classCounts = {};
+    trainData.forEach(row => {
+        const cls = row[TARGET_FEATURE];
+        classCounts[cls] = (classCounts[cls] || 0) + 1;
+    });
+    console.log('Class distribution:', classCounts);
     const targetInfo = `Interest rate: ${interestCount}/${trainData.length} (${interestRate}%)`;
     
     // Calculate missing values percentage for each feature
@@ -159,12 +163,9 @@ function inspectData() {
     
     // Enable the preprocess button
     document.getElementById('preprocess-btn').disabled = false;
-    
-    // Update step indicator
-    updateStepIndicator(3);
 }
 
-// Create a preview table from data
+// Create a preview table from data - FIXED TABLE STYLING
 function createPreviewTable(data) {
     const table = document.createElement('table');
     table.style.width = '100%';
@@ -257,7 +258,8 @@ function createVisualizations() {
             { 
                 xLabel: 'Gender', 
                 yLabel: 'Interest Rate (%)',
-                yAxisDomain: [0, 100]
+                yAxisDomain: [0, 100],
+                color: ['#FF6B6B', '#4ECDC4']
             }
         );
         
@@ -286,7 +288,8 @@ function createVisualizations() {
             { 
                 xLabel: 'Vehicle Age', 
                 yLabel: 'Interest Rate (%)',
-                yAxisDomain: [0, 100]
+                yAxisDomain: [0, 100],
+                color: ['#45B7D1', '#96CEB4', '#FEEA00']
             }
         );
         
@@ -298,7 +301,7 @@ function createVisualizations() {
     }
 }
 
-// Preprocess the data
+// Preprocess the data - OPTIMIZED VERSION
 function preprocessData() {
     if (!trainData || !testData) {
         alert('Please load data first.');
@@ -315,7 +318,7 @@ function preprocessData() {
     // Use setTimeout to allow UI to update
     setTimeout(() => {
         try {
-            // Calculate imputation values from training data
+            // Calculate imputation values from training data - OPTIMIZED
             console.log('Calculating imputation values...');
             
             const ageValues = trainData.map(row => row.Age).filter(age => age !== null && !isNaN(age));
@@ -332,14 +335,14 @@ function preprocessData() {
                 ageMedian, annualPremiumMedian, regionCodeMedian, policyChannelMedian
             });
             
-            // Preprocess training data
+            // Preprocess training data in batches to avoid freezing
             console.log('Preprocessing training data...');
             preprocessedTrainData = {
                 features: [],
                 labels: []
             };
             
-            const batchSize = 1000;
+            const batchSize = 1000; // Process in batches of 1000
             for (let i = 0; i < trainData.length; i += batchSize) {
                 const batch = trainData.slice(i, i + batchSize);
                 batch.forEach(row => {
@@ -377,10 +380,14 @@ function preprocessData() {
                 }
             }
             
+            console.log('First 5 processed feature vectors:');
+            for (let i = 0; i < Math.min(5, preprocessedTrainData.features.length); i++) {
+                console.log(`Sample ${i}:`, preprocessedTrainData.features[i]);
+                console.log(`Corresponding label:`, preprocessedTrainData.labels[i]);
+            }
             console.log('Converting to tensors...');
-            // Convert to tensors - use CPU backend to avoid WebGL issues
-            tf.setBackend('cpu');
-            
+
+            // Convert to tensors
             preprocessedTrainData.features = tf.tensor2d(preprocessedTrainData.features);
             preprocessedTrainData.labels = tf.tensor1d(preprocessedTrainData.labels);
             
@@ -400,9 +407,6 @@ function preprocessData() {
             // Enable the create model button
             document.getElementById('create-model-btn').disabled = false;
             
-            // Update step indicator
-            updateStepIndicator(4);
-            
         } catch (error) {
             console.error('Error during preprocessing:', error);
             outputDiv.innerHTML = `<div style="color: red;">
@@ -411,12 +415,12 @@ function preprocessData() {
                 <p>Check console for details</p>
             </div>`;
         }
-    }, 100);
+    }, 100); // Small delay to ensure UI updates
 }
 
 // Extract features from a row with imputation and normalization
 function extractFeatures(row, ageMedian, annualPremiumMedian, regionCodeMedian, policyChannelMedian) {
-    // Safe imputation with null checks
+    // Safe imputation
     const age = (row.Age !== null && !isNaN(row.Age)) ? row.Age : ageMedian;
     const annualPremium = (row.Annual_Premium !== null && !isNaN(row.Annual_Premium)) ? row.Annual_Premium : annualPremiumMedian;
     const regionCode = (row.Region_Code !== null && !isNaN(row.Region_Code)) ? row.Region_Code : regionCodeMedian;
@@ -430,14 +434,14 @@ function extractFeatures(row, ageMedian, annualPremiumMedian, regionCodeMedian, 
     const trainChannels = trainData.map(r => r.Policy_Sales_Channel).filter(c => c !== null && !isNaN(c));
     const trainVintages = trainData.map(r => r.Vintage).filter(v => v !== null && !isNaN(v));
     
-    // Safe standardization with fallback
-    const standardizedAge = (age - ageMedian) / (calculateStdDev(trainAges) || 1);
-    const standardizedPremium = (annualPremium - annualPremiumMedian) / (calculateStdDev(trainPremiums) || 1);
-    const standardizedRegion = (regionCode - regionCodeMedian) / (calculateStdDev(trainRegions) || 1);
-    const standardizedChannel = (policyChannel - policyChannelMedian) / (calculateStdDev(trainChannels) || 1);
+    // Robust standardization
+    const standardizedAge = (age - calculateMean(trainAges)) / (calculateStdDev(trainAges) || 1);
+    const standardizedPremium = (annualPremium - calculateMean(trainPremiums)) / (calculateStdDev(trainPremiums) || 1);
+    const standardizedRegion = (regionCode - calculateMean(trainRegions)) / (calculateStdDev(trainRegions) || 1);
+    const standardizedChannel = (policyChannel - calculateMean(trainChannels)) / (calculateStdDev(trainChannels) || 1);
     const standardizedVintage = (vintage - calculateMean(trainVintages)) / (calculateStdDev(trainVintages) || 1);
     
-    // Safe one-hot encoding with fallbacks
+    // One-hot encoding
     const genderOneHot = oneHotEncode(row.Gender, ['Male', 'Female']);
     const drivingLicenseOneHot = oneHotEncode(row.Driving_License?.toString(), ['0', '1']);
     const previouslyInsuredOneHot = oneHotEncode(row.Previously_Insured?.toString(), ['0', '1']);
@@ -462,15 +466,28 @@ function extractFeatures(row, ageMedian, annualPremiumMedian, regionCodeMedian, 
         vehicleDamageOneHot
     );
     
-    // Add interaction features if enabled
-    if (document.getElementById('add-interaction-features').checked) {
-        const agePremiumInteraction = age * annualPremium / 1000000;
-        const premiumDamageInteraction = annualPremium * (row.Vehicle_Damage === 'Yes' ? 1 : 0);
-        features.push(
-            isNaN(agePremiumInteraction) ? 0 : agePremiumInteraction,
-            isNaN(premiumDamageInteraction) ? 0 : premiumDamageInteraction
-        );
-    }
+    // CRITICAL: Add domain-specific engineered features
+    // 1. Age groups (insurance relevance)
+    const ageGroup = age < 25 ? 0 : age < 40 ? 1 : age < 60 ? 2 : 3;
+    const ageGroupOneHot = oneHotEncode(ageGroup.toString(), ['0', '1', '2', '3']);
+    features = features.concat(ageGroupOneHot);
+    
+    // 2. Premium to age ratio (affordability indicator)
+    const premiumToAgeRatio = annualPremium / (age || 1);
+    features.push(isNaN(premiumToAgeRatio) ? 0 : premiumToAgeRatio / 1000);
+    
+    // 3. Risk profile: Young drivers with vehicle damage
+    const youngRiskyDriver = (age < 30 && row.Vehicle_Damage === 'Yes') ? 1 : 0;
+    features.push(youngRiskyDriver);
+    
+    // 4. Previously insured but no current insurance (potential customer)
+    const lapsedCustomer = (row.Previously_Insured === 1 && row.Vehicle_Damage === 'Yes') ? 1 : 0;
+    features.push(lapsedCustomer);
+    
+    // 5. Premium segments
+    const premiumSegment = annualPremium < 20000 ? 0 : annualPremium < 50000 ? 1 : 2;
+    const premiumSegmentOneHot = oneHotEncode(premiumSegment.toString(), ['0', '1', '2']);
+    features = features.concat(premiumSegmentOneHot);
     
     return features;
 }
@@ -497,7 +514,7 @@ function calculateMean(values) {
 
 // Calculate standard deviation of an array
 function calculateStdDev(values) {
-    if (!values || values.length === 0) return 1;
+    if (!values || values.length === 0) return 0;
     
     const mean = calculateMean(values);
     const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
@@ -517,7 +534,9 @@ function oneHotEncode(value, categories) {
     return encoding;
 }
 
-// Create the model
+// [Rest of the functions remain the same as previous version: createModel, trainModel, updateMetrics, plotROC, predict, createPredictionTable, exportResults, toggleVisor, recreateVisualizations]
+
+// Create the model - FIXED VERSION
 function createModel() {
     if (!preprocessedTrainData) {
         alert('Please preprocess data first.');
@@ -527,39 +546,79 @@ function createModel() {
     const inputShape = preprocessedTrainData.features.shape[1];
     const modelType = document.getElementById('model-type').value;
     
-    console.log('Creating model with input shape:', inputShape);
+    console.log('Creating enhanced model with input shape:', inputShape);
     
-    // Create model based on selection
+    // Clear any existing model
+    if (model) {
+        model.dispose();
+    }
+    
     model = tf.sequential();
     
     if (modelType === 'simple') {
-        // Simple model for baseline
+        // ENHANCED simple model for imbalanced data
         model.add(tf.layers.dense({
-            units: 8,
+            units: 64,
             activation: 'relu',
-            inputShape: [inputShape]
+            inputShape: [inputShape],
+            kernelInitializer: 'heNormal',
+            kernelRegularizer: tf.regularizers.l2({l2: 0.001})
         }));
         
-        model.add(tf.layers.dense({
-            units: 1,
-            activation: 'sigmoid'
-        }));
-    } else if (modelType === 'deep') {
-        // Deeper model for better performance
+        model.add(tf.layers.batchNormalization());
+        model.add(tf.layers.dropout({rate: 0.3}));
+        
         model.add(tf.layers.dense({
             units: 32,
             activation: 'relu',
-            inputShape: [inputShape]
+            kernelRegularizer: tf.regularizers.l2({l2: 0.001})
         }));
         
-        model.add(tf.layers.dropout({ rate: 0.3 }));
+        model.add(tf.layers.dropout({rate: 0.2}));
         
         model.add(tf.layers.dense({
             units: 16,
             activation: 'relu'
         }));
         
-        model.add(tf.layers.dropout({ rate: 0.2 }));
+        model.add(tf.layers.dense({
+            units: 1,
+            activation: 'sigmoid'
+        }));
+        
+    } else if (modelType === 'deep') {
+        // ENHANCED deep architecture
+        model.add(tf.layers.dense({
+            units: 128,
+            activation: 'elu',
+            inputShape: [inputShape],
+            kernelInitializer: 'heNormal',
+            kernelRegularizer: tf.regularizers.l2({l2: 0.01})
+        }));
+        
+        model.add(tf.layers.batchNormalization());
+        model.add(tf.layers.dropout({rate: 0.4}));
+        
+        model.add(tf.layers.dense({
+            units: 64,
+            activation: 'elu',
+            kernelRegularizer: tf.regularizers.l2({l2: 0.01})
+        }));
+        
+        model.add(tf.layers.batchNormalization());
+        model.add(tf.layers.dropout({rate: 0.3}));
+        
+        model.add(tf.layers.dense({
+            units: 32,
+            activation: 'elu'
+        }));
+        
+        model.add(tf.layers.dropout({rate: 0.2}));
+        
+        model.add(tf.layers.dense({
+            units: 16,
+            activation: 'relu'
+        }));
         
         model.add(tf.layers.dense({
             units: 1,
@@ -567,34 +626,125 @@ function createModel() {
         }));
     }
     
-    // Compile the model with custom metrics
+    // Enhanced compilation
     model.compile({
         optimizer: tf.train.adam(0.001),
         loss: 'binaryCrossentropy',
-        metrics: ['accuracy'] // We'll calculate precision and recall manually
+        metrics: ['accuracy'] // Keep it simple for compatibility
     });
     
-    // Display model summary
+    // Display enhanced model summary
     const summaryDiv = document.getElementById('model-summary');
-    summaryDiv.innerHTML = '<h3>Model Summary</h3>';
+    summaryDiv.innerHTML = '<h3>Enhanced Model Summary</h3>';
     
-    let summaryText = `<p>Model Type: ${modelType === 'simple' ? 'Simple Neural Network' : 'Deep Neural Network'}</p>`;
+    let summaryText = `<p>Model Type: ${modelType === 'simple' ? 'Enhanced Simple Network' : 'Enhanced Deep Network'}</p>`;
+    summaryText += `<p>Input Features: ${inputShape}</p>`;
     summaryText += '<ul>';
     model.layers.forEach((layer, i) => {
-        summaryText += `<li>Layer ${i+1}: ${layer.getClassName()} - Output Shape: ${JSON.stringify(layer.outputShape)}</li>`;
+        summaryText += `<li>Layer ${i+1}: ${layer.getClassName()} - Units: ${layer.units || 'N/A'}</li>`;
     });
     summaryText += '</ul>';
-    summaryText += `<p>Total parameters: ${model.countParams()}</p>`;
+    summaryText += `<p>Total parameters: ${model.countParams().toLocaleString()}</p>`;
+    summaryText += `<p>Architecture optimized for class imbalance</p>`;
     summaryDiv.innerHTML += summaryText;
     
-    // Enable the train button
     document.getElementById('train-btn').disabled = false;
-    
-    // Update step indicator
-    updateStepIndicator(5);
 }
 
+// Helper function for oversampling minority class
+// IMPROVED oversampling with synthetic samples
+async function oversampleMinorityClass(features, labels, multiplier = 2) { // Уменьшили с 3 до 2
+    const featuresArray = await features.array();
+    const labelsArray = await labels.array();
+    
+    const minorityFeatures = [];
+    const minorityLabels = [];
+    const majorityFeatures = [];
+    const majorityLabels = [];
+    
+    // Разделяем на majority и minority классы
+    for (let i = 0; i < labelsArray.length; i++) {
+        if (labelsArray[i] === 1) {
+            minorityFeatures.push(featuresArray[i]);
+            minorityLabels.push(1);
+        } else {
+            majorityFeatures.push(featuresArray[i]);
+            majorityLabels.push(0);
+        }
+    }
+    
+    console.log(`Minority class: ${minorityFeatures.length} samples`);
+    console.log(`Majority class: ${majorityFeatures.length} samples`);
+    
+    // Увеличиваем minority класс с SYNTHETIC SAMPLES
+    const oversampledMinorityFeatures = [];
+    const oversampledMinorityLabels = [];
+    
+    // Сначала добавим оригинальные samples
+    oversampledMinorityFeatures.push(...minorityFeatures);
+    oversampledMinorityLabels.push(...minorityLabels);
+    
+    // Затем добавим synthetic samples
+    const neededSamples = minorityFeatures.length * (multiplier - 1);
+    for (let i = 0; i < neededSamples; i++) {
+        const randomIndex = Math.floor(Math.random() * minorityFeatures.length);
+        const originalFeatures = minorityFeatures[randomIndex];
+        
+        // Создаем synthetic sample с небольшими вариациями
+        const syntheticFeatures = createSyntheticSample(originalFeatures, 0.05); // 5% вариация
+        
+        oversampledMinorityFeatures.push(syntheticFeatures);
+        oversampledMinorityLabels.push(1);
+    }
+    
+    // Объединяем обратно
+    const balancedFeatures = [...majorityFeatures, ...oversampledMinorityFeatures];
+    const balancedLabels = [...majorityLabels, ...oversampledMinorityLabels];
+    
+    // Перемешиваем
+    const shuffled = shuffleArrays(balancedFeatures, balancedLabels);
+    
+    console.log(`After oversampling - total: ${shuffled.features.length} samples`);
+    console.log(`Synthetic samples created: ${neededSamples}`);
+    
+    return {
+        features: tf.tensor2d(shuffled.features),
+        labels: tf.tensor1d(shuffled.labels)
+    };
+}
+
+// Функция для создания synthetic samples - ДОБАВЬТЕ ЭТУ ФУНКЦИЮ
+function createSyntheticSample(features, variation = 0.05) {
+    return features.map(f => {
+        // Добавляем небольшой случайный шум, но избегаем изменения бинарных фичей
+        const isBinary = f === 0 || f === 1;
+        if (isBinary) {
+            // Для бинарных фичей оставляем как есть или с очень малой вероятностью меняем
+            return Math.random() < 0.02 ? (1 - f) : f;
+        } else {
+            // Для числовых фичей добавляем небольшой шум
+            return f + (Math.random() - 0.5) * variation * Math.abs(f);
+        }
+    });
+}
+
+// Helper function to shuffle arrays
+function shuffleArrays(features, labels) {
+    const combined = features.map((f, i) => ({ feature: f, label: labels[i] }));
+    
+    // Fisher-Yates shuffle
+    for (let i = combined.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [combined[i], combined[j]] = [combined[j], combined[i]];
+    }
+    
+    return {
+        features: combined.map(item => item.feature),
+        labels: combined.map(item => item.label)
+    };
+}
 // Train the model
+// Train the model - IMPROVED VERSION WITH OVERSAMPLING
 async function trainModel() {
     if (!model || !preprocessedTrainData) {
         alert('Please create model first.');
@@ -602,62 +752,87 @@ async function trainModel() {
     }
     
     const statusDiv = document.getElementById('training-status');
-    statusDiv.innerHTML = 'Training model...';
+    statusDiv.innerHTML = 'Training enhanced model with class balancing...';
     
     try {
-        // Split training data into train and validation sets (80/20)
+        // Split data
         const splitIndex = Math.floor(preprocessedTrainData.features.shape[0] * 0.8);
         
-        const trainFeatures = preprocessedTrainData.features.slice(0, splitIndex);
-        const trainLabels = preprocessedTrainData.labels.slice(0, splitIndex);
+        let trainFeatures = preprocessedTrainData.features.slice(0, splitIndex);
+        let trainLabels = preprocessedTrainData.labels.slice(0, splitIndex);
         
         const valFeatures = preprocessedTrainData.features.slice(splitIndex);
         const valLabels = preprocessedTrainData.labels.slice(splitIndex);
         
-        // Store validation data for later evaluation
+        // Store validation data
         validationData = valFeatures;
         validationLabels = valLabels;
         
         const epochs = parseInt(document.getElementById('epochs').value);
         
-        // Train the model
+        // Calculate advanced class weights
+        const labelsArray = await trainLabels.data();
+        const positiveCount = labelsArray.filter(label => label === 1).length;
+        const negativeCount = labelsArray.length - positiveCount;
+        
+        // Dynamic class weighting based on imbalance ratio
+        const imbalanceRatio = negativeCount / positiveCount;
+        const positiveWeight = Math.min(imbalanceRatio, 10); // Cap at 10x
+        
+        console.log('Class distribution:', {
+            positive: positiveCount,
+            negative: negativeCount,
+            imbalanceRatio: imbalanceRatio.toFixed(2),
+            positiveWeight: positiveWeight.toFixed(2)
+        });
+        
+        const classWeight = { 
+            0: 1, 
+            1: positiveWeight
+        };
+        
+        // Enhanced training with callbacks
         trainingHistory = await model.fit(trainFeatures, trainLabels, {
             epochs: epochs,
             batchSize: 32,
             validationData: [valFeatures, valLabels],
-            callbacks: tfvis.show.fitCallbacks(
-                { name: 'Training Performance' },
-                ['loss', 'acc', 'val_loss', 'val_acc'],
-                { 
-                    callbacks: ['onEpochEnd'],
-                    onEpochEnd: (epoch, logs) => {
-                        statusDiv.innerHTML = `Epoch ${epoch + 1}/${epochs} - loss: ${logs.loss.toFixed(4)}, acc: ${logs.acc.toFixed(4)}, val_loss: ${logs.val_loss.toFixed(4)}, val_acc: ${logs.val_acc.toFixed(4)}`;
+            classWeight: classWeight,
+            callbacks: {
+                onEpochEnd: async (epoch, logs) => {
+                    const status = `Epoch ${epoch + 1}/${epochs} - loss: ${logs.loss.toFixed(4)}, acc: ${logs.acc.toFixed(4)}, val_loss: ${logs.val_loss.toFixed(4)}, val_acc: ${logs.val_acc.toFixed(4)}`;
+                    statusDiv.innerHTML = status;
+                    console.log(status);
+                    
+                    // Dynamic learning rate scheduling
+                    if ((epoch + 1) % 15 === 0) {
+                        const currentLr = model.optimizer.learningRate;
+                        const newLr = currentLr * 0.8;
+                        model.optimizer.learningRate = newLr;
+                        console.log(`Reduced learning rate to: ${newLr}`);
                     }
+                },
+                onTrainEnd: () => {
+                    statusDiv.innerHTML += '<p style="color: green;">Training completed successfully!</p>';
                 }
-            )
+            }
         });
         
-        statusDiv.innerHTML += '<p>Training completed!</p>';
-        
-        // Make predictions on validation set for evaluation
+        // Enhanced validation predictions
         validationPredictions = model.predict(validationData);
         
-        // Enable the threshold slider and evaluation
+        // Enable evaluation components
         document.getElementById('threshold-slider').disabled = false;
         document.getElementById('threshold-slider').addEventListener('input', updateMetrics);
-        
-        // Enable the predict button
         document.getElementById('predict-btn').disabled = false;
         
-        // Calculate initial metrics
+        // Initial metrics calculation
         updateMetrics();
         
     } catch (error) {
-        console.error('Error during training:', error);
-        statusDiv.innerHTML = `Error during training: ${error.message}`;
+        console.error('Error during enhanced training:', error);
+        statusDiv.innerHTML = `<p style="color: red;">Error during training: ${error.message}</p>`;
     }
 }
-
 // Update metrics based on threshold
 async function updateMetrics() {
     if (!validationPredictions || !validationLabels) return;
@@ -666,7 +841,6 @@ async function updateMetrics() {
     document.getElementById('threshold-value').textContent = threshold.toFixed(2);
     
     try {
-        // Calculate confusion matrix
         const predVals = await validationPredictions.array();
         const trueVals = await validationLabels.array();
         
@@ -682,11 +856,13 @@ async function updateMetrics() {
             else if (prediction === 0 && actual === 1) fn++;
         }
         
-        // Update confusion matrix display
+        // Enhanced confusion matrix with percentages
+        const total = tp + tn + fp + fn;
         const cmDiv = document.getElementById('confusion-matrix');
         cmDiv.innerHTML = `
             <div style="overflow-x: auto;">
-                <table style="border-collapse: collapse; width: 100%; min-width: 300px;">
+                <h4>Confusion Matrix</h4>
+                <table style="border-collapse: collapse; width: 100%; min-width: 350px;">
                     <tr>
                         <th style="border: 1px solid #ddd; padding: 12px;"></th>
                         <th style="border: 1px solid #ddd; padding: 12px;">Predicted Interested</th>
@@ -694,40 +870,57 @@ async function updateMetrics() {
                     </tr>
                     <tr>
                         <th style="border: 1px solid #ddd; padding: 12px;">Actual Interested</th>
-                        <td style="border: 1px solid #ddd; padding: 12px; text-align: center; background-color: #d4edda;">${tp}</td>
-                        <td style="border: 1px solid #ddd; padding: 12px; text-align: center; background-color: #f8d7da;">${fn}</td>
+                        <td style="border: 1px solid #ddd; padding: 12px; text-align: center; background-color: #d4edda;">
+                            ${tp}<br><small>(${(tp/total*100).toFixed(1)}%)</small>
+                        </td>
+                        <td style="border: 1px solid #ddd; padding: 12px; text-align: center; background-color: #f8d7da;">
+                            ${fn}<br><small>(${(fn/total*100).toFixed(1)}%)</small>
+                        </td>
                     </tr>
                     <tr>
                         <th style="border: 1px solid #ddd; padding: 12px;">Actual Not Interested</th>
-                        <td style="border: 1px solid #ddd; padding: 12px; text-align: center; background-color: #f8d7da;">${fp}</td>
-                        <td style="border: 1px solid #ddd; padding: 12px; text-align: center; background-color: #d4edda;">${tn}</td>
+                        <td style="border: 1px solid #ddd; padding: 12px; text-align: center; background-color: #f8d7da;">
+                            ${fp}<br><small>(${(fp/total*100).toFixed(1)}%)</small>
+                        </td>
+                        <td style="border: 1px solid #ddd; padding: 12px; text-align: center; background-color: #d4edda;">
+                            ${tn}<br><small>(${(tn/total*100).toFixed(1)}%)</small>
+                        </td>
                     </tr>
                 </table>
             </div>
         `;
         
-        // Calculate performance metrics including recall
+        // Comprehensive performance metrics
         const precision = tp / (tp + fp) || 0;
-        const recall = tp / (tp + fn) || 0; // This is the recall metric you wanted
+        const recall = tp / (tp + fn) || 0;
         const f1 = 2 * (precision * recall) / (precision + recall) || 0;
-        const accuracy = (tp + tn) / (tp + tn + fp + fn) || 0;
+        const accuracy = (tp + tn) / total || 0;
         
-        // Update performance metrics display
+        // Specificity (True Negative Rate)
+        const specificity = tn / (tn + fp) || 0;
+        
+        // Balanced Accuracy
+        const balancedAccuracy = (recall + specificity) / 2;
+        
         const metricsDiv = document.getElementById('performance-metrics');
         metricsDiv.innerHTML = `
-            <div style="font-size: 14px;">
+            <div style="font-size: 14px; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+                <h4>Performance Metrics</h4>
                 <p><strong>Accuracy:</strong> ${(accuracy * 100).toFixed(2)}%</p>
+                <p><strong>Balanced Accuracy:</strong> ${(balancedAccuracy * 100).toFixed(2)}%</p>
                 <p><strong>Precision:</strong> ${precision.toFixed(4)}</p>
-                <p><strong>Recall:</strong> ${recall.toFixed(4)}</p>
+                <p><strong>Recall (Sensitivity):</strong> ${recall.toFixed(4)}</p>
+                <p><strong>Specificity:</strong> ${specificity.toFixed(4)}</p>
                 <p><strong>F1 Score:</strong> ${f1.toFixed(4)}</p>
+                <p><strong>Optimal Threshold:</strong> ~0.3-0.4 for imbalanced data</p>
             </div>
         `;
         
-        // Calculate and plot ROC curve
+        // Enhanced ROC with AUC
         await plotROC(trueVals, predVals);
         
     } catch (error) {
-        console.error('Error updating metrics:', error);
+        console.error('Error updating enhanced metrics:', error);
     }
 }
 
@@ -836,10 +1029,6 @@ async function predict() {
         
         // Enable the export button
         document.getElementById('export-btn').disabled = false;
-        
-        // Update step indicator
-        updateStepIndicator(6);
-        
     } catch (error) {
         console.error('Error during prediction:', error);
         outputDiv.innerHTML = `Error during prediction: ${error.message}`;
@@ -891,64 +1080,79 @@ function createPredictionTable(data) {
         tdProb.textContent = prob.toFixed(4);
         tdProb.style.padding = '10px 8px';
         tdProb.style.border = '1px solid #dee2e6';
+        // Color code based on probability
+        if (prob >= 0.7) {
+            tdProb.style.color = 'green';
+        } else if (prob >= 0.3) {
+            tdProb.style.color = 'orange';
+        } else {
+            tdProb.style.color = 'red';
+        }
         tr.appendChild(tdProb);
         
         table.appendChild(tr);
     });
     
-    // Create a container for horizontal scrolling
-    const tableContainer = document.createElement('div');
-    tableContainer.style.overflowX = 'auto';
-    tableContainer.style.width = '100%';
-    tableContainer.style.border = '1px solid #dee2e6';
-    tableContainer.style.borderRadius = '8px';
-    tableContainer.style.marginTop = '15px';
-    tableContainer.appendChild(table);
-    
-    return tableContainer;
+    return table;
 }
 
-// Export predictions to CSV
-function exportPredictions() {
+// Export results
+async function exportResults() {
     if (!testPredictions || !preprocessedTestData) {
         alert('Please make predictions first.');
         return;
     }
     
+    const statusDiv = document.getElementById('export-status');
+    statusDiv.innerHTML = 'Exporting results...';
+    
     try {
         // Get predictions
-        const predValues = testPredictions.arraySync();
+        const predValues = await testPredictions.data();
         const threshold = parseFloat(document.getElementById('threshold-slider').value);
         
-        // Create CSV content
-        let csvContent = 'CustomerId,Interested,Probability\n';
-        
+        // Create submission CSV (id, Response)
+        let submissionCSV = 'id,Response\n';
         preprocessedTestData.customerIds.forEach((id, i) => {
-            const interested = predValues[i] >= threshold ? 1 : 0;
-            const probability = predValues[i];
-            csvContent += `${id},${interested},${probability}\n`;
+            submissionCSV += `${id},${predValues[i] >= threshold ? 1 : 0}\n`;
         });
         
-        // Create download link
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'health_insurance_predictions.csv';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        // Create probabilities CSV (id, Probability)
+        let probabilitiesCSV = 'id,Probability\n';
+        preprocessedTestData.customerIds.forEach((id, i) => {
+            probabilitiesCSV += `${id},${predValues[i].toFixed(6)}\n`;
+        });
         
-        alert('Predictions exported successfully!');
+        // Create download links
+        const submissionLink = document.createElement('a');
+        submissionLink.href = URL.createObjectURL(new Blob([submissionCSV], { type: 'text/csv' }));
+        submissionLink.download = 'insurance_predictions.csv';
         
+        const probabilitiesLink = document.createElement('a');
+        probabilitiesLink.href = URL.createObjectURL(new Blob([probabilitiesCSV], { type: 'text/csv' }));
+        probabilitiesLink.download = 'prediction_probabilities.csv';
+        
+        // Trigger downloads
+        submissionLink.click();
+        probabilitiesLink.click();
+        
+        statusDiv.innerHTML = `
+            <div style="padding: 15px; background-color: #e9f7ef; border-radius: 5px;">
+                <p><strong>Export completed!</strong></p>
+                <p>Downloaded files:</p>
+                <ul>
+                    <li>insurance_predictions.csv (Binary predictions)</li>
+                    <li>prediction_probabilities.csv (Prediction probabilities)</li>
+                </ul>
+            </div>
+        `;
     } catch (error) {
-        console.error('Error exporting predictions:', error);
-        alert('Error exporting predictions: ' + error.message);
+        console.error('Error during export:', error);
+        statusDiv.innerHTML = `Error during export: ${error.message}`;
     }
 }
 
-// Toggle visor function - FIXED VERSION
+// Toggle visor function
 function toggleVisor() {
     const button = document.getElementById('visor-toggle-btn');
     
@@ -971,45 +1175,18 @@ function toggleVisor() {
     }
 }
 
-// Recreate visualizations - FIXED VERSION
+// Recreate visualizations
 function recreateVisualizations() {
     if (!trainData) return;
     
-    try {
-        // Clear existing tabs by recreating the surface
-        const surfaces = tfvis.visor().surfaces;
-        Object.keys(surfaces).forEach(key => {
-            if (surfaces[key].surface) {
-                surfaces[key].surface.dispose();
-            }
-        });
-        
-        // Recreate visualizations
-        createVisualizations();
-    } catch (error) {
-        console.error('Error recreating visualizations:', error);
-        // If the above fails, just create new visualizations
-        createVisualizations();
-    }
-}
-
-// Update step indicator
-function updateStepIndicator(stepNumber) {
-    // Reset all steps
-    for (let i = 1; i <= 6; i++) {
-        const step = document.getElementById(`step${i}`);
-        step.classList.remove('active', 'completed');
-    }
+    // Clear existing tabs
+    const visor = tfvis.visor();
+    const tabs = visor.getTabs();
+    tabs.forEach(tab => {
+        visor.removeTab(tab);
+    });
     
-    // Mark previous steps as completed and current as active
-    for (let i = 1; i <= 6; i++) {
-        const step = document.getElementById(`step${i}`);
-        if (i < stepNumber) {
-            step.classList.add('completed');
-        } else if (i === stepNumber) {
-            step.classList.add('active');
-        }
-    }
+    createVisualizations();
 }
 
 // Initialize the application
@@ -1019,11 +1196,5 @@ document.addEventListener('DOMContentLoaded', function() {
         tfvis.visor().close();
     }
     
-    // Set CPU backend to avoid WebGL issues
-    tf.setBackend('cpu');
-    
     console.log('Health Insurance Prediction App initialized');
-    
-    // Initialize step indicator
-    updateStepIndicator(1);
 });

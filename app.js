@@ -16,13 +16,89 @@ const ID_FEATURE = 'id';
 const NUMERICAL_FEATURES = ['Age', 'Region_Code', 'Annual_Premium', 'Policy_Sales_Channel', 'Vintage'];
 const CATEGORICAL_FEATURES = ['Gender', 'Driving_License', 'Previously_Insured', 'Vehicle_Age', 'Vehicle_Damage'];
 
+// Application modes
+const APP_MODE = {
+    TRAINING: 'training',
+    PREDICTION: 'prediction'
+};
+
+let currentMode = APP_MODE.TRAINING;
+let trainedModel = null;
+
+// Switch between ML Specialist and Business User modes
+function switchMode(mode) {
+    currentMode = mode;
+    
+    // Hide all cards first
+    document.querySelectorAll('.card').forEach(card => {
+        card.style.display = 'none';
+    });
+    
+    if (mode === APP_MODE.TRAINING) {
+        // Show ML Specialist sections
+        const mlSections = [
+            'Data Upload', 'Data Exploration', 'Data Preprocessing', 
+            'Model Configuration', 'Model Training', 'Model Evaluation',
+            'Prediction', 'Export Results'
+        ];
+        
+        document.querySelectorAll('.card').forEach(card => {
+            const cardTitle = card.querySelector('h2');
+            if (cardTitle) {
+                const titleText = cardTitle.textContent || cardTitle.innerText;
+                if (mlSections.some(section => titleText.includes(section))) {
+                    card.style.display = 'block';
+                }
+            }
+        });
+        
+        document.getElementById('ml-mode-btn').style.background = 'linear-gradient(135deg, #007bff 0%, #0056b3 100%)';
+        document.getElementById('business-mode-btn').style.background = '#6c757d';
+        document.getElementById('mode-indicator').textContent = 'Current Mode: ML Specialist';
+        document.getElementById('mode-indicator').style.color = '#007bff';
+    } else {
+        // Business User Mode - show only relevant sections
+        const businessSections = [
+            'Business Insights', 'Single Customer Prediction', 'Business Prediction'
+        ];
+        
+        document.querySelectorAll('.card').forEach(card => {
+            const cardTitle = card.querySelector('h2');
+            if (cardTitle) {
+                const titleText = cardTitle.textContent || cardTitle.innerText;
+                if (businessSections.some(section => titleText.includes(section))) {
+                    card.style.display = 'block';
+                }
+            }
+        });
+        
+        document.getElementById('ml-mode-btn').style.background = '#6c757d';
+        document.getElementById('business-mode-btn').style.background = 'linear-gradient(135deg, #28a745 0%, #1e7e34 100%)';
+        document.getElementById('mode-indicator').textContent = 'Current Mode: Business User';
+        document.getElementById('mode-indicator').style.color = '#28a745';
+        
+        if (!trainedModel) {
+            alert('No trained model available. Please train the model in ML Specialist mode first.');
+            switchMode(APP_MODE.TRAINING);
+            return;
+        }
+        
+        // Generate business insights if data is available
+        if (trainData) {
+            generateBusinessInsights();
+            createBusinessVisualizations();
+        }
+    }
+    updateModelStatus();
+}
+
 // Load data from uploaded CSV files
 async function loadData() {
     const trainFile = document.getElementById('train-file').files[0];
     const testFile = document.getElementById('test-file').files[0];
     
-    if (!trainFile || !testFile) {
-        alert('Please upload both training and test CSV files.');
+    if (!trainFile) {
+        alert('Please upload at least training CSV file.');
         return;
     }
     
@@ -37,15 +113,23 @@ async function loadData() {
         trainData = parseCSV(trainText);
         console.log('Training data loaded:', trainData.length, 'rows');
         
-        // Load test data
-        const testText = await readFile(testFile);
-        testData = parseCSV(testText);
-        console.log('Test data loaded:', testData.length, 'rows');
+        // Load test data if provided
+        if (testFile) {
+            const testText = await readFile(testFile);
+            testData = parseCSV(testText);
+            console.log('Test data loaded:', testData.length, 'rows');
+        }
         
-        statusDiv.innerHTML = `Data loaded successfully! Training: ${trainData.length} samples, Test: ${testData.length} samples`;
+        statusDiv.innerHTML = `Data loaded successfully! Training: ${trainData.length} samples${testData ? `, Test: ${testData.length} samples` : ''}`;
         
         // Enable the inspect button
         document.getElementById('inspect-btn').disabled = false;
+        
+        // If in business mode, update insights
+        if (currentMode === APP_MODE.PREDICTION) {
+            generateBusinessInsights();
+            createBusinessVisualizations();
+        }
     } catch (error) {
         console.error('Error loading data:', error);
         statusDiv.innerHTML = `Error loading data: ${error.message}`;
@@ -136,37 +220,16 @@ function inspectData() {
     const shapeInfo = `Dataset shape: ${trainData.length} rows x ${Object.keys(trainData[0]).length} columns`;
     const interestCount = trainData.filter(row => row[TARGET_FEATURE] === 1).length;
     const interestRate = (interestCount / trainData.length * 100).toFixed(2);
-    console.log('Class distribution analysis:');
-    const classCounts = {};
-    trainData.forEach(row => {
-        const cls = row[TARGET_FEATURE];
-        classCounts[cls] = (classCounts[cls] || 0) + 1;
-    });
-    console.log('Class distribution:', classCounts);
+    
     const targetInfo = `Interest rate: ${interestCount}/${trainData.length} (${interestRate}%)`;
     
-    // Calculate missing values percentage for each feature
-    let missingInfo = '<h4>Missing Values Percentage:</h4><ul>';
-    Object.keys(trainData[0]).forEach(feature => {
-        const missingCount = trainData.filter(row => 
-            row[feature] === null || row[feature] === undefined || row[feature] === ''
-        ).length;
-        const missingPercent = (missingCount / trainData.length * 100).toFixed(2);
-        missingInfo += `<li>${feature}: ${missingPercent}%</li>`;
-    });
-    missingInfo += '</ul>';
-    
-    statsDiv.innerHTML += `<p>${shapeInfo}</p><p>${targetInfo}</p>${missingInfo}`;
-    
-    generateBusinessInsights();
-    // Create visualizations
-    createVisualizations();
+    statsDiv.innerHTML += `<p>${shapeInfo}</p><p>${targetInfo}</p>`;
     
     // Enable the preprocess button
     document.getElementById('preprocess-btn').disabled = false;
 }
 
-// Create a preview table from data - FIXED TABLE STYLING
+// Create a preview table from data
 function createPreviewTable(data) {
     const table = document.createElement('table');
     table.style.width = '100%';
@@ -204,7 +267,6 @@ function createPreviewTable(data) {
             td.style.textOverflow = 'ellipsis';
             td.style.whiteSpace = 'nowrap';
             
-            // Add some color coding for better readability
             if (index === 0) {
                 td.style.backgroundColor = '#f8f9fa';
                 td.style.fontWeight = '500';
@@ -227,101 +289,42 @@ function createPreviewTable(data) {
     return tableContainer;
 }
 
-// Create visualizations using tfjs-vis
-function createVisualizations() {
-    console.log('Creating visualizations...');
-    const chartsDiv = document.getElementById('charts');
-    chartsDiv.innerHTML = '<h3>Data Visualizations</h3>';
-    
-    try {
-        // Interest by Gender
-        const interestByGender = {};
-        trainData.forEach(row => {
-            if (row.Gender && row.Response !== undefined && row.Response !== null) {
-                if (!interestByGender[row.Gender]) {
-                    interestByGender[row.Gender] = { interested: 0, total: 0 };
-                }
-                interestByGender[row.Gender].total++;
-                if (row.Response === 1) {
-                    interestByGender[row.Gender].interested++;
-                }
-            }
-        });
-        
-        const genderData = [
-            { index: 'Male', value: (interestByGender.Male?.interested / interestByGender.Male?.total) * 100 || 0 },
-            { index: 'Female', value: (interestByGender.Female?.interested / interestByGender.Female?.total) * 100 || 0 }
-        ];
-        
-        tfvis.render.barchart(
-            { name: 'Interest Rate by Gender', tab: 'Charts' },
-            genderData,
-            { 
-                xLabel: 'Gender', 
-                yLabel: 'Interest Rate (%)',
-                yAxisDomain: [0, 100],
-                color: ['#FF6B6B', '#4ECDC4']
-            }
-        );
-        
-        // Interest by Vehicle Age
-        const interestByVehicleAge = {};
-        trainData.forEach(row => {
-            if (row.Vehicle_Age !== undefined && row.Vehicle_Age !== null && row.Response !== undefined && row.Response !== null) {
-                if (!interestByVehicleAge[row.Vehicle_Age]) {
-                    interestByVehicleAge[row.Vehicle_Age] = { interested: 0, total: 0 };
-                }
-                interestByVehicleAge[row.Vehicle_Age].total++;
-                if (row.Response === 1) {
-                    interestByVehicleAge[row.Vehicle_Age].interested++;
-                }
-            }
-        });
-        
-        const vehicleAgeData = Object.keys(interestByVehicleAge).map(age => ({
-            index: age,
-            value: (interestByVehicleAge[age].interested / interestByVehicleAge[age].total) * 100
-        }));
-        
-        tfvis.render.barchart(
-            { name: 'Interest Rate by Vehicle Age', tab: 'Charts' },
-            vehicleAgeData,
-            { 
-                xLabel: 'Vehicle Age', 
-                yLabel: 'Interest Rate (%)',
-                yAxisDomain: [0, 100],
-                color: ['#45B7D1', '#96CEB4', '#FEEA00']
-            }
-        );
-        
-        chartsDiv.innerHTML += '<p>Charts are displayed in the tfjs-vis visor. Click the "Show Charts" button to view.</p>';
-        
-    } catch (error) {
-        console.error('Error creating visualizations:', error);
-        chartsDiv.innerHTML += `<p style="color: red;">Error creating charts: ${error.message}</p>`;
-    }
-}
-
-// Enhanced Business Insights
+// Enhanced Business Insights for Business Mode
 function generateBusinessInsights() {
+    if (!trainData || trainData.length === 0) {
+        console.log('No data available for business insights');
+        return;
+    }
+    
     const insightsDiv = document.getElementById('business-insights');
+    if (!insightsDiv) {
+        console.error('Business insights div not found');
+        return;
+    }
+    
     insightsDiv.innerHTML = '<h3>📊 Business Insights & Customer Analysis</h3>';
     
-    // 1. Анализ возраста
-    const ages = trainData.map(row => row.Age).filter(age => age !== null);
+    // Calculate insights
+    const totalCustomers = trainData.length;
+    const interestedCustomers = trainData.filter(row => row.Response === 1).length;
+    const overallInterestRate = (interestedCustomers / totalCustomers * 100).toFixed(1);
+    
+    // Age analysis
+    const ages = trainData.map(row => row.Age).filter(age => age !== null && !isNaN(age));
     const avgAge = calculateMean(ages);
     const youngCustomers = trainData.filter(row => row.Age < 30).length;
-    const youngInterestRate = trainData.filter(row => row.Age < 30 && row.Response === 1).length / youngCustomers * 100;
+    const youngInterestRate = youngCustomers > 0 ? 
+        (trainData.filter(row => row.Age < 30 && row.Response === 1).length / youngCustomers * 100).toFixed(1) : 0;
     
-    // 2. Анализ премиумов
-    const premiums = trainData.map(row => row.Annual_Premium).filter(p => p !== null);
+    // Premium analysis
+    const premiums = trainData.map(row => row.Annual_Premium).filter(p => p !== null && !isNaN(p));
     const avgPremium = calculateMean(premiums);
     const highPremiumCustomers = trainData.filter(row => row.Annual_Premium > 50000).length;
     
-    // 3. Анализ по Vehicle Damage
+    // Vehicle Damage analysis
     const damageData = {};
     trainData.forEach(row => {
-        if (row.Vehicle_Damage && row.Response !== undefined) {
+        if (row.Vehicle_Damage && row.Response !== undefined && row.Response !== null) {
             if (!damageData[row.Vehicle_Damage]) {
                 damageData[row.Vehicle_Damage] = { interested: 0, total: 0 };
             }
@@ -330,32 +333,474 @@ function generateBusinessInsights() {
         }
     });
     
+    // Gender analysis
+    const genderData = {};
+    trainData.forEach(row => {
+        if (row.Gender && row.Response !== undefined && row.Response !== null) {
+            if (!genderData[row.Gender]) {
+                genderData[row.Gender] = { interested: 0, total: 0 };
+            }
+            genderData[row.Gender].total++;
+            if (row.Response === 1) genderData[row.Gender].interested++;
+        }
+    });
+    
     insightsDiv.innerHTML += `
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 15px 0;">
-            <h4>🎯 Customer Demographics</h4>
+        <div class="insight-card">
+            <h4>🎯 Customer Portfolio Overview</h4>
+            <div class="metric-grid">
+                <div class="metric">
+                    <span class="metric-value">${totalCustomers.toLocaleString()}</span>
+                    <span class="metric-label">Total Customers</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-value">${overallInterestRate}%</span>
+                    <span class="metric-label">Interest Rate</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-value">${interestedCustomers}</span>
+                    <span class="metric-label">Interested Customers</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-value">₹${avgPremium.toFixed(0)}</span>
+                    <span class="metric-label">Avg Premium</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="insight-card">
+            <h4>📈 Demographic Insights</h4>
             <p><strong>Average Customer Age:</strong> ${avgAge.toFixed(1)} years</p>
-            <p><strong>Young Customers (<30):</strong> ${youngCustomers} (${(youngCustomers/trainData.length*100).toFixed(1)}% of portfolio)</p>
-            <p><strong>Young Customer Interest Rate:</strong> ${youngInterestRate.toFixed(1)}%</p>
-            <p><strong>Average Annual Premium:</strong> ₹${avgPremium.toFixed(0)}</p>
+            <p><strong>Young Customers (<30):</strong> ${youngCustomers} (${(youngCustomers/totalCustomers*100).toFixed(1)}% of portfolio)</p>
+            <p><strong>Young Customer Interest Rate:</strong> ${youngInterestRate}%</p>
             <p><strong>High-Premium Customers (>₹50k):</strong> ${highPremiumCustomers}</p>
         </div>
         
-        <div style="background: #e8f4fd; padding: 20px; border-radius: 10px; margin: 15px 0;">
-            <h4>🚗 Vehicle Risk Analysis</h4>
+        <div class="insight-card">
+            <h4>🚗 Risk & Insurance Patterns</h4>
             <p><strong>Customers with Vehicle Damage History:</strong> ${damageData['Yes'] ? damageData['Yes'].total : 0}</p>
             <p><strong>Damage History → Interest Rate:</strong> ${damageData['Yes'] ? (damageData['Yes'].interested/damageData['Yes'].total*100).toFixed(1) : 0}%</p>
             <p><strong>No Damage History → Interest Rate:</strong> ${damageData['No'] ? (damageData['No'].interested/damageData['No'].total*100).toFixed(1) : 0}%</p>
-            <p><strong>Insight:</strong> Customers with prior vehicle damage are ${damageData['Yes'] && damageData['No'] ? (damageData['Yes'].interested/damageData['Yes'].total)/(damageData['No'].interested/damageData['No'].total).toFixed(1) : 'N/A'}x more likely to be interested</p>
         </div>
         
-        <div style="background: #fff3cd; padding: 20px; border-radius: 10px; margin: 15px 0;">
-            <h4>📈 Portfolio Insights</h4>
-            <p><strong>Overall Interest Rate:</strong> ${(trainData.filter(row => row.Response === 1).length / trainData.length * 100).toFixed(1)}%</p>
-            <p><strong>Market Potential:</strong> Based on current portfolio, ~${Math.round(trainData.filter(row => row.Response === 1).length * 0.3)} additional policies possible</p>
-            <p><strong>Recommendation:</strong> Focus outreach on younger customers with vehicle damage history</p>
+        <div class="insight-card">
+            <h4>🎯 Marketing Recommendations</h4>
+            <p><strong>Target Segment:</strong> Customers aged 25-40 with vehicle damage history</p>
+            <p><strong>Potential Revenue:</strong> ~${Math.round(interestedCustomers * avgPremium * 0.3).toLocaleString()} INR from cross-selling</p>
+            <p><strong>Action Plan:</strong> Focus on customers with high premium capacity and prior insurance experience</p>
         </div>
     `;
 }
+
+// Create business visualizations
+function createBusinessVisualizations() {
+    if (!trainData) return;
+    
+    const vizContainer = document.getElementById('business-visualizations');
+    if (!vizContainer) return;
+    
+    vizContainer.innerHTML = '<h3>📊 Customer Analytics Dashboard</h3>';
+    
+    try {
+        // Interest by Gender
+        const genderData = {};
+        trainData.forEach(row => {
+            if (row.Gender && row.Response !== undefined && row.Response !== null) {
+                if (!genderData[row.Gender]) {
+                    genderData[row.Gender] = { interested: 0, total: 0 };
+                }
+                genderData[row.Gender].total++;
+                if (row.Response === 1) {
+                    genderData[row.Gender].interested++;
+                }
+            }
+        });
+        
+        const genderChartData = [
+            { index: 'Male', value: (genderData.Male?.interested / genderData.Male?.total) * 100 || 0 },
+            { index: 'Female', value: (genderData.Female?.interested / genderData.Female?.total) * 100 || 0 }
+        ];
+        
+        // Age distribution
+        const ageGroups = {
+            '18-25': 0, '26-35': 0, '36-45': 0, '46-55': 0, '56+': 0
+        };
+        
+        trainData.forEach(row => {
+            if (row.Age) {
+                if (row.Age <= 25) ageGroups['18-25']++;
+                else if (row.Age <= 35) ageGroups['26-35']++;
+                else if (row.Age <= 45) ageGroups['36-45']++;
+                else if (row.Age <= 55) ageGroups['46-55']++;
+                else ageGroups['56+']++;
+            }
+        });
+        
+        const ageChartData = Object.keys(ageGroups).map(ageGroup => ({
+            index: ageGroup,
+            value: ageGroups[ageGroup]
+        }));
+        
+        vizContainer.innerHTML += `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <h4>Interest Rate by Gender</h4>
+                    <div id="gender-chart"></div>
+                </div>
+                <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <h4>Customer Age Distribution</h4>
+                    <div id="age-chart"></div>
+                </div>
+            </div>
+        `;
+        
+        // Render charts
+        tfvis.render.barchart(
+            { name: 'Interest Rate by Gender', tab: 'Business Analytics' },
+            genderChartData,
+            { 
+                xLabel: 'Gender', 
+                yLabel: 'Interest Rate (%)',
+                yAxisDomain: [0, 100]
+            }
+        );
+        
+        tfvis.render.barchart(
+            { name: 'Customer Age Distribution', tab: 'Business Analytics' },
+            ageChartData,
+            { 
+                xLabel: 'Age Group', 
+                yLabel: 'Number of Customers'
+            }
+        );
+        
+    } catch (error) {
+        console.error('Error creating business visualizations:', error);
+    }
+}
+
+// FIXED: Single customer prediction with correct feature dimension
+async function predictSingle() {
+    if (!trainedModel) {
+        alert('Please train the model first in ML Specialist mode.');
+        return;
+    }
+    
+    try {
+        // Get feature dimension from the model
+        const inputShape = trainedModel.inputs[0].shape[1];
+        console.log('Model expects input shape:', inputShape);
+        
+        // Collect data from form
+        const formData = {
+            Age: parseInt(document.getElementById('pred-age').value) || 35,
+            Annual_Premium: parseFloat(document.getElementById('pred-premium').value) || 30000,
+            Vintage: parseInt(document.getElementById('pred-vintage').value) || 100,
+            Gender: document.getElementById('pred-gender').value,
+            Driving_License: parseInt(document.getElementById('pred-license').value),
+            Previously_Insured: parseInt(document.getElementById('pred-insured').value),
+            Vehicle_Age: document.getElementById('pred-vehicle-age').value,
+            Vehicle_Damage: document.getElementById('pred-damage').value,
+            Region_Code: 28, // Default value
+            Policy_Sales_Channel: 26 // Default value
+        };
+        
+        console.log('Form data:', formData);
+        
+        // Create a mock row that matches training data structure
+        const mockRow = {
+            Age: formData.Age,
+            Region_Code: formData.Region_Code,
+            Annual_Premium: formData.Annual_Premium,
+            Policy_Sales_Channel: formData.Policy_Sales_Channel,
+            Vintage: formData.Vintage,
+            Gender: formData.Gender,
+            Driving_License: formData.Driving_License,
+            Previously_Insured: formData.Previously_Insured,
+            Vehicle_Age: formData.Vehicle_Age,
+            Vehicle_Damage: formData.Vehicle_Damage
+        };
+        
+        // Extract features using the same preprocessing as training data
+        const features = extractSingleFeatures(mockRow);
+        console.log('Extracted features length:', features.length);
+        console.log('Features:', features);
+        
+        // Make prediction
+        const inputTensor = tf.tensor2d([features]);
+        const prediction = trainedModel.predict(inputTensor);
+        const probability = (await prediction.data())[0];
+        
+        // Show result
+        const resultDiv = document.getElementById('single-result');
+        const threshold = 0.3; // Default threshold for business mode
+        const isInterested = probability >= threshold;
+        
+        resultDiv.style.display = 'block';
+        resultDiv.style.background = isInterested ? '#d4edda' : '#f8d7da';
+        resultDiv.style.color = isInterested ? '#155724' : '#721c24';
+        resultDiv.style.border = '1px solid ' + (isInterested ? '#28a745' : '#dc3545');
+        resultDiv.style.borderLeft = '4px solid ' + (isInterested ? '#28a745' : '#dc3545');
+        
+        resultDiv.innerHTML = `
+            <h4>🎯 Prediction Result</h4>
+            <p><strong>Interest Probability:</strong> <span style="font-size: 1.2em; font-weight: bold; color: ${isInterested ? '#28a745' : '#dc3545'};">${(probability * 100).toFixed(1)}%</span></p>
+            <p><strong>Prediction:</strong> <span style="font-size: 1.1em; font-weight: bold;">${isInterested ? '✅ INTERESTED' : '❌ NOT INTERESTED'}</span></p>
+            <p><strong>Confidence Level:</strong> ${probability >= 0.7 ? 'High' : probability >= 0.4 ? 'Medium' : 'Low'}</p>
+            <p><strong>Recommended Action:</strong> ${isInterested ? 
+                '🎯 Prioritize for targeted marketing campaign' : 
+                '📧 Include in general communication'}</p>
+        `;
+        
+        // Clean up tensors
+        inputTensor.dispose();
+        prediction.dispose();
+        
+    } catch (error) {
+        console.error('Error in single prediction:', error);
+        const resultDiv = document.getElementById('single-result');
+        resultDiv.style.display = 'block';
+        resultDiv.style.background = '#fff5f5';
+        resultDiv.style.color = '#721c24';
+        resultDiv.innerHTML = `
+            <h4>❌ Prediction Error</h4>
+            <p>Error making prediction: ${error.message}</p>
+            <p>Please ensure the model is properly trained in ML Specialist mode.</p>
+        `;
+    }
+}
+
+// Extract features for single prediction (FIXED version)
+function extractSingleFeatures(row) {
+    // Use training data for standardization if available
+    let standardizedAge = row.Age || 0;
+    let standardizedPremium = row.Annual_Premium || 0;
+    let standardizedRegion = row.Region_Code || 0;
+    let standardizedChannel = row.Policy_Sales_Channel || 0;
+    let standardizedVintage = row.Vintage || 0;
+    
+    if (trainData && trainData.length > 0) {
+        const trainAges = trainData.map(r => r.Age).filter(a => a !== null && !isNaN(a));
+        const trainPremiums = trainData.map(r => r.Annual_Premium).filter(p => p !== null && !isNaN(p));
+        const trainRegions = trainData.map(r => r.Region_Code).filter(c => c !== null && !isNaN(c));
+        const trainChannels = trainData.map(r => r.Policy_Sales_Channel).filter(c => c !== null && !isNaN(c));
+        const trainVintages = trainData.map(r => r.Vintage).filter(v => v !== null && !isNaN(v));
+        
+        standardizedAge = (row.Age - calculateMean(trainAges)) / (calculateStdDev(trainAges) || 1);
+        standardizedPremium = (row.Annual_Premium - calculateMean(trainPremiums)) / (calculateStdDev(trainPremiums) || 1);
+        standardizedRegion = (row.Region_Code - calculateMean(trainRegions)) / (calculateStdDev(trainRegions) || 1);
+        standardizedChannel = (row.Policy_Sales_Channel - calculateMean(trainChannels)) / (calculateStdDev(trainChannels) || 1);
+        standardizedVintage = (row.Vintage - calculateMean(trainVintages)) / (calculateStdDev(trainVintages) || 1);
+    }
+    
+    // Start with numerical features
+    let features = [
+        isNaN(standardizedAge) ? 0 : standardizedAge,
+        isNaN(standardizedPremium) ? 0 : standardizedPremium,
+        isNaN(standardizedRegion) ? 0 : standardizedRegion,
+        isNaN(standardizedChannel) ? 0 : standardizedChannel,
+        isNaN(standardizedVintage) ? 0 : standardizedVintage
+    ];
+    
+    // One-hot encoding for categorical features
+    const genderOneHot = oneHotEncode(row.Gender, ['Male', 'Female']);
+    const drivingLicenseOneHot = oneHotEncode(row.Driving_License?.toString(), ['0', '1']);
+    const previouslyInsuredOneHot = oneHotEncode(row.Previously_Insured?.toString(), ['0', '1']);
+    const vehicleAgeOneHot = oneHotEncode(row.Vehicle_Age, ['< 1 Year', '1-2 Year', '> 2 Years']);
+    const vehicleDamageOneHot = oneHotEncode(row.Vehicle_Damage, ['Yes', 'No']);
+    
+    // Combine all features
+    features = features.concat(
+        genderOneHot, 
+        drivingLicenseOneHot, 
+        previouslyInsuredOneHot, 
+        vehicleAgeOneHot, 
+        vehicleDamageOneHot
+    );
+    
+    // Add engineered features to match training dimension
+    const youngRiskyDriver = (row.Age < 30 && row.Vehicle_Damage === 'Yes') ? 1 : 0;
+    features.push(youngRiskyDriver);
+    
+    const lapsedCustomer = (row.Previously_Insured === 1 && row.Vehicle_Damage === 'Yes') ? 1 : 0;
+    features.push(lapsedCustomer);
+    
+    // Premium segments
+    const premiumSegment = row.Annual_Premium < 20000 ? 0 : row.Annual_Premium < 50000 ? 1 : 2;
+    const premiumSegmentOneHot = oneHotEncode(premiumSegment.toString(), ['0', '1', '2']);
+    features = features.concat(premiumSegmentOneHot);
+    
+    console.log('Final feature vector length:', features.length);
+    return features;
+}
+
+// Business prediction function
+async function predictBusiness() {
+    if (!trainedModel) {
+        alert('Please train the model first in ML Specialist mode.');
+        return;
+    }
+    
+    const businessFile = document.getElementById('business-file').files[0];
+    if (!businessFile) {
+        alert('Please upload a CSV file for prediction.');
+        return;
+    }
+    
+    const outputDiv = document.getElementById('business-prediction-output');
+    outputDiv.innerHTML = 'Processing business prediction...';
+    
+    try {
+        // Load and process business data
+        const businessText = await readFile(businessFile);
+        const businessData = parseCSV(businessText);
+        
+        // Preprocess business data (simplified version)
+        const businessFeatures = businessData.map(row => extractSingleFeatures(row));
+        const customerIds = businessData.map(row => row.id || row.customer_id || `cust_${Math.random().toString(36).substr(2, 9)}`);
+        
+        // Make predictions
+        const featuresTensor = tf.tensor2d(businessFeatures);
+        const predictions = trainedModel.predict(featuresTensor);
+        const predValues = await predictions.data();
+        
+        // Create results
+        const threshold = 0.3;
+        const results = customerIds.map((id, i) => ({
+            CustomerId: id,
+            Interested: predValues[i] >= threshold ? 1 : 0,
+            Probability: predValues[i],
+            Recommendation: predValues[i] >= threshold ? 'High Priority' : 'Standard'
+        }));
+        
+        // Show summary
+        const interestedCount = results.filter(r => r.Interested === 1).length;
+        const totalCount = results.length;
+        const interestRate = (interestedCount / totalCount * 100).toFixed(1);
+        
+        outputDiv.innerHTML = `
+            <div style="background: #e9f7ef; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <h4>📊 Business Prediction Summary</h4>
+                <p><strong>Total Customers Analyzed:</strong> ${totalCount}</p>
+                <p><strong>High Priority Leads:</strong> ${interestedCount} (${interestRate}%)</p>
+                <p><strong>Potential Campaign Size:</strong> ${interestedCount} customers</p>
+            </div>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <h4>Customer Predictions (First 20)</h4>
+                ${createBusinessPredictionTable(results.slice(0, 20))}
+            </div>
+        `;
+        
+        // Clean up
+        featuresTensor.dispose();
+        predictions.dispose();
+        
+    } catch (error) {
+        console.error('Error in business prediction:', error);
+        outputDiv.innerHTML = `<div style="color: red;">Error in business prediction: ${error.message}</div>`;
+    }
+}
+
+function createBusinessPredictionTable(results) {
+    if (results.length === 0) return '<p>No results to display</p>';
+    
+    let tableHTML = `
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+                <tr style="background: #f8f9fa;">
+                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Customer ID</th>
+                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Interest Probability</th>
+                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Priority</th>
+                    <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Recommendation</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    results.forEach(result => {
+        const probabilityPercent = (result.Probability * 100).toFixed(1);
+        const priorityColor = result.Interested ? '#28a745' : '#6c757d';
+        
+        tableHTML += `
+            <tr>
+                <td style="padding: 10px; border: 1px solid #ddd;">${result.CustomerId}</td>
+                <td style="padding: 10px; border: 1px solid #ddd;">
+                    <span style="color: ${result.Probability >= 0.7 ? '#28a745' : result.Probability >= 0.4 ? '#ffc107' : '#dc3545'}; font-weight: bold;">
+                        ${probabilityPercent}%
+                    </span>
+                </td>
+                <td style="padding: 10px; border: 1px solid #ddd; color: ${priorityColor}; font-weight: bold;">
+                    ${result.Interested ? 'HIGH' : 'LOW'}
+                </td>
+                <td style="padding: 10px; border: 1px solid #ddd;">${result.Recommendation}</td>
+            </tr>
+        `;
+    });
+    
+    tableHTML += '</tbody></table>';
+    return tableHTML;
+}
+
+// Update model status
+function updateModelStatus() {
+    const statusElement = document.getElementById('model-status');
+    if (trainedModel) {
+        statusElement.innerHTML = '🟢 Model Ready for Predictions';
+        statusElement.style.color = 'green';
+    } else {
+        statusElement.innerHTML = '🔴 No Model Available - Train First';
+        statusElement.style.color = '#dc3545';
+    }
+}
+
+// Keep the rest of your existing functions (loadData, parseCSV, createModel, trainModel, etc.)
+// but add this line at the end of trainModel to save the trained model:
+const originalTrainModel = trainModel;
+trainModel = async function() {
+    await originalTrainModel.call(this);
+    trainedModel = model;
+    updateModelStatus();
+    console.log('Model saved for business predictions');
+};
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Health Insurance Prediction App initialized');
+    updateModelStatus();
+    switchMode(APP_MODE.TRAINING); // Start in ML Specialist mode
+    
+    // Close visor on page load
+    if (tfvis.visor().isOpen()) {
+        tfvis.visor().close();
+    }
+});
+
+// Add these helper functions if they don't exist
+function calculateMean(values) {
+    if (!values || values.length === 0) return 0;
+    return values.reduce((sum, val) => sum + val, 0) / values.length;
+}
+
+function calculateStdDev(values) {
+    if (!values || values.length === 0) return 0;
+    const mean = calculateMean(values);
+    const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
+    const variance = squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
+    return Math.sqrt(variance);
+}
+
+function oneHotEncode(value, categories) {
+    if (!categories || categories.length === 0) return [];
+    const encoding = new Array(categories.length).fill(0);
+    const index = categories.indexOf(value);
+    if (index !== -1) {
+        encoding[index] = 1;
+    }
+    return encoding;
+}
+
+// Include all your existing functions below (preprocessData, extractFeatures, createModel, trainModel, etc.)
+// Make sure they're the same as in your original app.js
 
 // Preprocess the data - OPTIMIZED VERSION
 function preprocessData() {
